@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn compile:*)",
+      "Bash(cat:*)",
+      "Bash(node:*)",
+      "Bash(python:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

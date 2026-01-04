@@ -1,0 +1,56 @@
+{
+  "name": "quant-trading-frontend",
+  "version": "1.0.0",
+  "description": "量化交易系统前端 - Electron应用",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "quantitative",
+    "trading",
+    "electron"
+  ],
+  "author": "Quant Trading System",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "sockjs-client": "^1.6.1",
+    "stompjs": "^2.3.3",
+    "axios": "^1.6.2"
+  },
+  "build": {
+    "appId": "com.quant.trading",
+    "productName": "量化交易系统",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    }
+  }
+}
+
+
+

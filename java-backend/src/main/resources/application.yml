@@ -1,0 +1,43 @@
+# 公共配置 - 所有环境共享
+spring:
+  application:
+    name: trading-backend
+  
+  # 默认激活开发环境（可通过环境变量或启动参数覆盖）
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  
+  # Jackson JSON配置
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false  # 日期序列化为字符串而不是时间戳
+    time-zone: Asia/Shanghai
+  
+  # JPA配置（公共部分）
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  
+  # 数据库连接池配置（公共部分）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-timeout: 30000  # 连接超时30秒
+      idle-timeout: 600000  # 空闲连接超时10分钟
+      max-lifetime: 1800000  # 连接最大生命周期30分钟
+      leak-detection-threshold: 60000  # 连接泄漏检测阈值60秒
+  
+  # Redis连接池配置（公共部分）
+  data:
+    redis:
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-wait: 2000   # 最大等待时间（毫秒）
+
+# 风控配置（公共）
+risk:
+  control:
+    max-position: 0.3  # 最大仓位限制（0.3 = 30%）
+    min-confidence: 0.6  # 最小置信度（0.6 = 60%）

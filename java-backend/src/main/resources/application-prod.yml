@@ -1,0 +1,81 @@
+# 生产环境配置
+server:
+  port: 8080  # 生产环境端口（可通过环境变量覆盖）
+
+spring:
+  # WebSocket配置
+  websocket:
+    allowed-origins: "*"  # 生产环境不限制域名
+  
+  # 数据库配置（生产环境）
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/quant_trading?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}  # 从环境变量读取密码
+    # HikariCP连接池配置（生产环境，优化以支持20+用户）
+    hikari:
+      maximum-pool-size: 30  # 最大连接数（20用户 + 10缓冲）
+      minimum-idle: 10      # 最小空闲连接
+  
+  # JPA配置（生产环境）
+  jpa:
+    hibernate:
+      ddl-auto: validate  # 生产环境只验证，不自动更新
+    show-sql: false       # 生产环境不显示SQL
+    properties:
+      hibernate:
+        format_sql: false  # 不格式化SQL
+  
+  # Redis配置（生产环境）
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}  # Redis密码（如果有）
+      database: ${REDIS_DATABASE:0}
+      lettuce:
+        pool:
+          max-active: 20   # 最大连接数
+          max-idle: 10     # 最大空闲连接
+          min-idle: 5      # 最小空闲连接
+
+# Python策略服务配置（生产环境）
+python:
+  strategy:
+    api:
+      url: ${PYTHON_API_URL:http://localhost:8000}
+      timeout: 10000  # 生产环境超时时间更长
+
+# 代理配置（生产环境）
+proxy:
+  enabled: ${PROXY_ENABLED:false}  # 生产环境默认不启用代理
+  http: ${PROXY_HTTP:}
+  https: ${PROXY_HTTPS:}
+  proxy-url: ${PROXY_URL:}
+
+# JWT配置（生产环境）
+# 注意：生产环境应使用环境变量设置JWT密钥，不要硬编码
+jwt:
+  secret: ${JWT_SECRET:prod-quant-trading-system-secret-key-for-jwt-token-generation-2024-very-long-secret-key-change-this-in-production}
+  expiration: 8640000000  # 24小时（毫秒）
+
+# 风控配置（生产环境）
+risk:
+  control:
+    enabled: false  # 生产环境不启用风控检查
+
+# 日志配置（生产环境）
+logging:
+  level:
+    com.quant: INFO   # 生产环境使用INFO级别
+    org.springframework: WARN
+    org.hibernate: WARN
+    root: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/trading-backend-prod.log
+    max-size: 50MB
+    max-history: 60  # 保留60天的日志
+

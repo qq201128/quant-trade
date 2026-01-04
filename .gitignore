@@ -1,0 +1,223 @@
+# ============================================
+# Java / Maven
+# ============================================
+java-backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.mvn/
+mvnw
+mvnw.cmd
+
+# ============================================
+# Node.js / Electron
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Electron 构建输出
+electron-app/dist/
+electron-app/build/
+electron-app/out/
+electron-app/*.app
+electron-app/*.exe
+electron-app/*.dmg
+electron-app/*.deb
+electron-app/*.rpm
+
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+
+# Python IDE
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# ============================================
+# IDE / 编辑器
+# ============================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+.metadata
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# NetBeans
+nbproject/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# ============================================
+# 操作系统文件
+# ============================================
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============================================
+# 环境变量和配置
+# ============================================
+.env
+.env.local
+.env.*.local
+*.env
+config/local.properties
+application-local.yml
+application-dev.yml
+secrets/
+
+# ============================================
+# 日志文件
+# ============================================
+*.log
+logs/
+*.log.*
+log/
+
+# ============================================
+# 临时文件和缓存
+# ============================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+.temp/
+tmp/
+temp/
+
+# ============================================
+# 数据库文件
+# ============================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ============================================
+# 备份文件
+# ============================================
+*.bak
+*.backup
+*.old
+*.orig
+
+# ============================================
+# 压缩文件（通常不需要版本控制）
+# ============================================
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# ============================================
+# 测试覆盖率报告
+# ============================================
+coverage/
+.nyc_output/
+*.lcov
+.coverage
+htmlcov/
+
+# ============================================
+# 其他
+# ============================================
+# 密钥和证书
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.jks
+
+# 文档生成
+site/
+docs/_build/
+
+# 打包文件
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+
