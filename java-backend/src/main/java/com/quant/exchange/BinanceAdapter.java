@@ -183,15 +183,28 @@ public class BinanceAdapter implements ExchangeAdapter {
                             BigDecimal leverage = new BigDecimal(leverageStr);
                             BigDecimal isolatedMargin = new BigDecimal(isolatedMarginStr);
                             
+                            // 计算保证金：如果 isolatedMargin 为 0，则根据持仓价值和杠杆计算
+                            BigDecimal calculatedMargin = isolatedMargin;
+                            if (isolatedMargin.compareTo(BigDecimal.ZERO) <= 0 && 
+                                entryPrice.compareTo(BigDecimal.ZERO) > 0 && 
+                                positionAmt.abs().compareTo(BigDecimal.ZERO) > 0 &&
+                                leverage.compareTo(BigDecimal.ZERO) > 0) {
+                                // 保证金 = 持仓价值 / 杠杆 = (开仓均价 × 持仓数量) / 杠杆
+                                BigDecimal positionValue = entryPrice.multiply(positionAmt.abs());
+                                calculatedMargin = positionValue.divide(leverage, 8, BigDecimal.ROUND_HALF_UP);
+                                log.debug("计算保证金: symbol={}, 持仓价值={}, 杠杆={}, 保证金={}", 
+                                        symbol, positionValue, leverage, calculatedMargin);
+                            }
+                            
                             // 计算盈亏百分比（相对于保证金）
                             // 盈亏百分比 = 未实现盈亏 / 保证金 × 100
                             BigDecimal pnlPercentage = BigDecimal.ZERO;
-                            if (isolatedMargin.compareTo(BigDecimal.ZERO) > 0) {
+                            if (calculatedMargin.compareTo(BigDecimal.ZERO) > 0) {
                                 // 使用保证金计算盈亏百分比（更准确）
-                                pnlPercentage = unrealizedPnl.divide(isolatedMargin, 8, BigDecimal.ROUND_HALF_UP)
+                                pnlPercentage = unrealizedPnl.divide(calculatedMargin, 8, BigDecimal.ROUND_HALF_UP)
                                         .multiply(new BigDecimal("100"));
                             } else if (entryPrice.compareTo(BigDecimal.ZERO) > 0 && positionAmt.abs().compareTo(BigDecimal.ZERO) > 0) {
-                                // 如果没有保证金，使用持仓价值计算（备用方案）
+                                // 如果仍然没有保证金，使用持仓价值计算（备用方案）
                                 BigDecimal positionValue = entryPrice.multiply(positionAmt.abs());
                                 if (positionValue.compareTo(BigDecimal.ZERO) > 0) {
                                     pnlPercentage = unrealizedPnl.divide(positionValue, 8, BigDecimal.ROUND_HALF_UP)
@@ -227,12 +240,12 @@ public class BinanceAdapter implements ExchangeAdapter {
                                     }
                                     // 重新计算盈亏百分比（相对于保证金）
                                     // 盈亏百分比 = 未实现盈亏 / 保证金 × 100
-                                    if (isolatedMargin.compareTo(BigDecimal.ZERO) > 0) {
+                                    if (calculatedMargin.compareTo(BigDecimal.ZERO) > 0) {
                                         // 使用保证金计算盈亏百分比（更准确）
-                                        pnlPercentage = unrealizedPnl.divide(isolatedMargin, 8, BigDecimal.ROUND_HALF_UP)
+                                        pnlPercentage = unrealizedPnl.divide(calculatedMargin, 8, BigDecimal.ROUND_HALF_UP)
                                                 .multiply(new BigDecimal("100"));
                                     } else if (entryPrice.compareTo(BigDecimal.ZERO) > 0 && positionAmt.abs().compareTo(BigDecimal.ZERO) > 0) {
-                                        // 如果没有保证金，使用持仓价值计算（备用方案）
+                                        // 如果仍然没有保证金，使用持仓价值计算（备用方案）
                                         BigDecimal positionValue = entryPrice.multiply(positionAmt.abs());
                                         if (positionValue.compareTo(BigDecimal.ZERO) > 0) {
                                             pnlPercentage = unrealizedPnl.divide(positionValue, 8, BigDecimal.ROUND_HALF_UP)
@@ -254,7 +267,7 @@ public class BinanceAdapter implements ExchangeAdapter {
                                     .unrealizedPnl(unrealizedPnl)
                                     .pnlPercentage(pnlPercentage)
                                     .leverage(leverage.intValue())
-                                    .margin(isolatedMargin)
+                                    .margin(calculatedMargin) // 使用计算出的保证金
                                     .build();
                             
                             positions.add(position);

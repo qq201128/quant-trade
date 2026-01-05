@@ -35,6 +35,7 @@ public class AccountService {
     private final AuthService authService;
     private final ExchangeConfigService exchangeConfigService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ClosePositionRecordService closePositionRecordService;
     
     // 缓存账户信息（userId -> AccountInfo）
     private final Map<String, AccountInfo> accountCache = new ConcurrentHashMap<>();
@@ -311,16 +312,30 @@ public class AccountService {
                                     .multiply(pos.getQuantity());
                         }
                         
+                        // 计算保证金：如果保证金为 0，则根据持仓价值和杠杆计算
+                        java.math.BigDecimal calculatedMargin = pos.getMargin();
+                        if ((calculatedMargin == null || calculatedMargin.compareTo(java.math.BigDecimal.ZERO) <= 0) && 
+                            pos.getAvgPrice().compareTo(java.math.BigDecimal.ZERO) > 0 && 
+                            pos.getQuantity().compareTo(java.math.BigDecimal.ZERO) > 0 &&
+                            pos.getLeverage() != null && pos.getLeverage() > 0) {
+                            // 保证金 = 持仓价值 / 杠杆 = (开仓均价 × 持仓数量) / 杠杆
+                            java.math.BigDecimal positionValue = pos.getAvgPrice().multiply(pos.getQuantity());
+                            calculatedMargin = positionValue.divide(
+                                    new java.math.BigDecimal(pos.getLeverage()), 
+                                    8, 
+                                    java.math.RoundingMode.HALF_UP);
+                        }
+                        
                         // 重新计算盈亏百分比（相对于保证金）
                         // 盈亏百分比 = 未实现盈亏 / 保证金 × 100
                         java.math.BigDecimal newPnlPercentage = java.math.BigDecimal.ZERO;
-                        if (pos.getMargin() != null && pos.getMargin().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                        if (calculatedMargin != null && calculatedMargin.compareTo(java.math.BigDecimal.ZERO) > 0) {
                             // 使用保证金计算盈亏百分比（更准确）
-                            newPnlPercentage = newUnrealizedPnl.divide(pos.getMargin(), 8, java.math.RoundingMode.HALF_UP)
+                            newPnlPercentage = newUnrealizedPnl.divide(calculatedMargin, 8, java.math.RoundingMode.HALF_UP)
                                     .multiply(new java.math.BigDecimal("100"));
                         } else if (pos.getAvgPrice().compareTo(java.math.BigDecimal.ZERO) > 0 && 
                                 pos.getQuantity().compareTo(java.math.BigDecimal.ZERO) > 0) {
-                            // 如果没有保证金，使用持仓价值计算（备用方案）
+                            // 如果仍然没有保证金，使用持仓价值计算（备用方案）
                             java.math.BigDecimal positionValue = pos.getAvgPrice().multiply(pos.getQuantity());
                             if (positionValue.compareTo(java.math.BigDecimal.ZERO) > 0) {
                                 newPnlPercentage = newUnrealizedPnl.divide(positionValue, 8, java.math.RoundingMode.HALF_UP)
@@ -338,7 +353,7 @@ public class AccountService {
                                 .unrealizedPnl(newUnrealizedPnl)  // 使用重新计算的盈亏
                                 .pnlPercentage(newPnlPercentage)   // 使用重新计算的盈亏百分比
                                 .leverage(pos.getLeverage())
-                                .margin(pos.getMargin())
+                                .margin(calculatedMargin)  // 使用计算出的保证金
                                 .build();
                         updatedPositions.add(updatedPosition);
                         log.debug("使用实时标记价格更新持仓: symbol={}, 实时价格={}, 盈亏={}", 
@@ -640,6 +655,16 @@ public class AccountService {
                 log.info("平仓成功: userId={}, symbol={}, side={}, quantity={}, orderId={}", 
                         userId, symbol, side, closeQuantity, result.getOrderId());
                 
+                // 记录平仓信息（手动平仓）
+                try {
+                    closePositionRecordService.recordClosePosition(
+                            userId, symbol, side, closeQuantity, targetPosition,
+                            result, "MANUAL", null);
+                } catch (Exception e) {
+                    log.error("记录平仓信息失败: userId={}, symbol={}, side={}, error={}",
+                            userId, symbol, side, e.getMessage());
+                }
+                
                 // 平仓成功后清除缓存，强制刷新数据
                 clearCache(userId);
                 
@@ -678,6 +703,20 @@ public class AccountService {
      */
     public Mono<Boolean> closePositionReactive(String userId, String symbol, String side, 
                                                java.math.BigDecimal quantity, java.math.BigDecimal margin) {
+        return closePositionReactive(userId, symbol, side, quantity, margin, null);
+    }
+    
+    /**
+     * 平仓（响应式版本，用于响应式链中调用，支持策略名称）
+     * @param userId 用户ID
+     * @param symbol 交易对
+     * @param side 持仓方向 (LONG/SHORT)
+     * @param quantity 平仓数量，如果为null则平全部
+     * @param margin 平仓保证金（USDT），如果提供则根据保证金计算数量
+     * @param strategyName 策略名称（策略平仓时记录，可选）
+     */
+    public Mono<Boolean> closePositionReactive(String userId, String symbol, String side, 
+                                               java.math.BigDecimal quantity, java.math.BigDecimal margin, String strategyName) {
         ExchangeAdapter adapter = userAdapters.get(userId);
         
         if (adapter == null) {
@@ -701,14 +740,17 @@ public class AccountService {
                         return Mono.just(false);
                     }
                     
+                    // 将 targetPosition 赋值给 final 变量，以便在嵌套 lambda 中使用
+                    final Position finalTargetPosition = targetPosition;
+                    
                     // 确定平仓数量
                     Mono<java.math.BigDecimal> closeQuantityMono;
                     
                     // 优先检查保证金，如果提供了保证金，根据保证金计算数量
                     if (margin != null && margin.compareTo(java.math.BigDecimal.ZERO) > 0) {
                         // 按保证金平仓
-                        java.math.BigDecimal currentPrice = targetPosition.getCurrentPrice();
-                        Integer leverage = targetPosition.getLeverage() != null ? targetPosition.getLeverage() : 1;
+                        java.math.BigDecimal currentPrice = finalTargetPosition.getCurrentPrice();
+                        Integer leverage = finalTargetPosition.getLeverage() != null ? finalTargetPosition.getLeverage() : 1;
                         
                         if (currentPrice == null || currentPrice.compareTo(java.math.BigDecimal.ZERO) <= 0) {
                             log.error("无法获取当前价格，无法根据保证金计算平仓数量: userId={}, symbol={}", userId, symbol);
@@ -723,8 +765,8 @@ public class AccountService {
                                 .divide(currentPrice, 8, java.math.RoundingMode.HALF_UP);
                         
                         // 确保平仓数量不超过持仓数量
-                        java.math.BigDecimal closeQuantity = calculatedQuantity.compareTo(targetPosition.getQuantity()) > 0
-                                ? targetPosition.getQuantity()
+                        java.math.BigDecimal closeQuantity = calculatedQuantity.compareTo(finalTargetPosition.getQuantity()) > 0
+                                ? finalTargetPosition.getQuantity()
                                 : calculatedQuantity;
                         
                         log.info("按保证金平仓: userId={}, symbol={}, side={}, 保证金={} USDT, 杠杆={}倍, 名义价值={} USDT, 当前价格={}, 计算数量={}", 
@@ -733,15 +775,15 @@ public class AccountService {
                         closeQuantityMono = Mono.just(closeQuantity);
                     } else if (quantity != null && quantity.compareTo(java.math.BigDecimal.ZERO) > 0) {
                         // 按数量部分平仓
-                        java.math.BigDecimal closeQuantity = quantity.compareTo(targetPosition.getQuantity()) > 0
-                                ? targetPosition.getQuantity()
+                        java.math.BigDecimal closeQuantity = quantity.compareTo(finalTargetPosition.getQuantity()) > 0
+                                ? finalTargetPosition.getQuantity()
                                 : quantity;
                         log.info("部分平仓: userId={}, symbol={}, side={}, 持仓数量={}, 平仓数量={}", 
-                                userId, symbol, side, targetPosition.getQuantity(), closeQuantity);
+                                userId, symbol, side, finalTargetPosition.getQuantity(), closeQuantity);
                         closeQuantityMono = Mono.just(closeQuantity);
                     } else {
                         // 全部平仓（既没有提供数量，也没有提供保证金）
-                        java.math.BigDecimal closeQuantity = targetPosition.getQuantity();
+                        java.math.BigDecimal closeQuantity = finalTargetPosition.getQuantity();
                         log.info("全部平仓: userId={}, symbol={}, side={}, 数量={}", 
                                 userId, symbol, side, closeQuantity);
                         closeQuantityMono = Mono.just(closeQuantity);
@@ -775,6 +817,16 @@ public class AccountService {
                                             if (order != null && order.getOrderId() != null) {
                                                 log.info("平仓成功: userId={}, symbol={}, side={}, quantity={}, orderId={}", 
                                                         userId, symbol, side, closeQuantity, order.getOrderId());
+                                                
+                                                // 记录平仓信息（策略平仓）
+                                                try {
+                                                    closePositionRecordService.recordClosePosition(
+                                                            userId, symbol, side, closeQuantity, finalTargetPosition,
+                                                            order, "STRATEGY", strategyName);
+                                                } catch (Exception e) {
+                                                    log.error("记录平仓信息失败: userId={}, symbol={}, side={}, error={}",
+                                                            userId, symbol, side, e.getMessage());
+                                                }
                                                 
                                                 // 平仓成功后清除缓存，强制刷新数据
                                                 clearCache(userId);

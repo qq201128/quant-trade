@@ -124,8 +124,14 @@ public class OrderService {
             log.info("执行平仓操作: userId={}, symbol={}, side={}, positionRatio={}", 
                     userId, symbol, side, positionRatio);
             
-            // 调用AccountService平仓（响应式版本，全部平仓，不指定数量）
-            return accountService.closePositionReactive(userId, symbol, side, null, null)
+            // 从metadata中获取策略名称
+            String strategyName = null;
+            if (metadata != null && metadata.containsKey("strategy")) {
+                strategyName = String.valueOf(metadata.get("strategy"));
+            }
+            
+            // 调用AccountService平仓（响应式版本，全部平仓，不指定数量，传递策略名称）
+            return accountService.closePositionReactive(userId, symbol, side, null, null, strategyName)
                     .map(success -> {
                         if (success) {
                             return "CLOSE_ORDER_SUCCESS_" + System.currentTimeMillis();

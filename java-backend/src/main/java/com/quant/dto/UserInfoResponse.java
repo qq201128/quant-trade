@@ -23,6 +23,7 @@ public class UserInfoResponse {
     private String email;
     private String phone;
     private String exchangeType;
+    private Boolean enabled;
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Shanghai")
     private LocalDateTime createdAt;

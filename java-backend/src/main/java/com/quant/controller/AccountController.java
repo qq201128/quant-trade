@@ -1,8 +1,10 @@
 package com.quant.controller;
 
 import com.quant.model.AccountInfo;
+import com.quant.model.ClosePositionRecord;
 import com.quant.model.Position;
 import com.quant.service.AccountService;
+import com.quant.service.ClosePositionRecordService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ import java.util.Map;
 public class AccountController {
     
     private final AccountService accountService;
+    private final ClosePositionRecordService closePositionRecordService;
     
     /**
      * 获取当前用户的账户信息
@@ -185,6 +188,21 @@ public class AccountController {
             response.put("success", false);
             response.put("message", "开仓失败: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 获取指定用户的平仓历史记录（管理员功能）
+     */
+    @GetMapping("/close-positions/{userId}")
+    public ResponseEntity<List<ClosePositionRecord>> getClosePositionRecords(
+            @PathVariable String userId) {
+        try {
+            List<ClosePositionRecord> records = closePositionRecordService.getClosePositionRecords(userId);
+            return ResponseEntity.ok(records);
+        } catch (Exception e) {
+            log.error("获取平仓历史记录失败: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.internalServerError().build();
         }
     }
     

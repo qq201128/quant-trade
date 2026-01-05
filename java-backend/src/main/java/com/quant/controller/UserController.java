@@ -99,6 +99,34 @@ public class UserController {
     }
     
     /**
+     * 获取所有用户列表（管理员功能）
+     */
+    @GetMapping("/list")
+    public ResponseEntity<java.util.List<UserInfoResponse>> getAllUsers() {
+        try {
+            java.util.List<User> users = authService.getAllUsers();
+            
+            java.util.List<UserInfoResponse> responseList = users.stream()
+                    .map(user -> UserInfoResponse.builder()
+                            .userId(user.getUserId())
+                            .username(user.getUsername())
+                            .email(user.getEmail())
+                            .phone(user.getPhone())
+                            .exchangeType(user.getExchangeType() != null ? user.getExchangeType().getCode() : null)
+                            .enabled(user.getEnabled())
+                            .createdAt(user.getCreatedAt())
+                            .updatedAt(user.getUpdatedAt())
+                            .build())
+                    .collect(java.util.stream.Collectors.toList());
+            
+            return ResponseEntity.ok(responseList);
+        } catch (Exception e) {
+            log.error("获取用户列表失败: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
      * 获取用户信息
      */
     @GetMapping("/{userId}")
@@ -113,6 +141,7 @@ public class UserController {
                     .email(user.getEmail())
                     .phone(user.getPhone())
                     .exchangeType(user.getExchangeType() != null ? user.getExchangeType().getCode() : null)
+                    .enabled(user.getEnabled())
                     .createdAt(user.getCreatedAt())
                     .updatedAt(user.getUpdatedAt())
                     .build();

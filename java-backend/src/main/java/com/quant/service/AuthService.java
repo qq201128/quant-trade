@@ -134,5 +134,12 @@ public class AuthService {
         user.setExchangeType(exchangeType);
         return userRepository.save(user);
     }
+    
+    /**
+     * 获取所有用户列表
+     */
+    public java.util.List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
 }
 
