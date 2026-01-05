@@ -152,6 +152,6 @@ app.on('window-all-closed', () => {
 // IPC通信处理
 ipcMain.handle('get-backend-url', () => {
   // 从环境变量或配置文件读取后端URL
-  return process.env.BACKEND_URL || 'http://localhost:8080';
+  return process.env.BACKEND_URL || 'http://188.239.21.115:8080';
 });
 

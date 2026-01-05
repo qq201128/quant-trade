@@ -1,5 +1,6 @@
 # 生产环境配置
 server:
+  address: 0.0.0.0  # 监听所有网络接口，允许外部访问
   port: 8080  # 生产环境端口（可通过环境变量覆盖）
 
 spring:
@@ -8,10 +9,16 @@ spring:
     allowed-origins: "*"  # 生产环境不限制域名
   
   # 数据库配置（生产环境）
+  # 注意：容器环境访问宿主机MySQL的方式：
+  # 1. Linux系统：使用Docker网关IP（通常是172.17.0.1），可通过 docker network inspect bridge | grep Gateway 查看
+  # 2. Windows/Mac Docker Desktop：使用 host.docker.internal
+  # 3. 如果使用host网络模式：使用 localhost
+  # 如果默认IP不适用，请修改为实际的Docker网关IP或使用host.docker.internal
+  # 密码建议通过环境变量配置，更安全
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/quant_trading?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=Asia/Shanghai}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}  # 从环境变量读取密码
+    url: jdbc:mysql://172.17.0.1:3306/quant_trading?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${DB_PASSWORD:}  # 从环境变量读取密码，如果未设置则为空
     # HikariCP连接池配置（生产环境，优化以支持20+用户）
     hikari:
       maximum-pool-size: 30  # 最大连接数（20用户 + 10缓冲）
@@ -27,12 +34,13 @@ spring:
         format_sql: false  # 不格式化SQL
   
   # Redis配置（生产环境）
+  # 注意：容器环境访问宿主机Redis，使用Docker网关IP（Linux系统）
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}  # Redis密码（如果有）
-      database: ${REDIS_DATABASE:0}
+      host: 172.17.0.1  # Docker网关IP，如果不同请修改
+      port: 6379
+      password:   # Redis密码（如果有，通过环境变量配置）
+      database: 0
       lettuce:
         pool:
           max-active: 20   # 最大连接数
@@ -43,20 +51,19 @@ spring:
 python:
   strategy:
     api:
-      url: ${PYTHON_API_URL:http://localhost:8000}
+      url: http://172.17.0.1:8000
       timeout: 10000  # 生产环境超时时间更长
 
 # 代理配置（生产环境）
 proxy:
-  enabled: ${PROXY_ENABLED:false}  # 生产环境默认不启用代理
-  http: ${PROXY_HTTP:}
-  https: ${PROXY_HTTPS:}
-  proxy-url: ${PROXY_URL:}
+  enabled: false  # 生产环境默认不启用代理
+  http: ""  # HTTP代理地址（生产环境不需要）
+  https: ""  # HTTPS代理地址（生产环境不需要）
 
 # JWT配置（生产环境）
 # 注意：生产环境应使用环境变量设置JWT密钥，不要硬编码
 jwt:
-  secret: ${JWT_SECRET:prod-quant-trading-system-secret-key-for-jwt-token-generation-2024-very-long-secret-key-change-this-in-production}
+  secret: prod-quant-trading-system-secret-key-for-jwt-token-generation-2024-very-long-secret-key-change-this-in-production
   expiration: 8640000000  # 24小时（毫秒）
 
 # 风控配置（生产环境）
