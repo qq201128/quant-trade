@@ -37,9 +37,9 @@ spring:
   # 注意：容器环境访问宿主机Redis，使用Docker网关IP（Linux系统）
   data:
     redis:
-      host: 172.17.0.1  # Docker网关IP，如果不同请修改
+      host: 1Panel-redis-Ae7E  # Docker网关IP，如果不同请修改
       port: 6379
-      password:   # Redis密码（如果有，通过环境变量配置）
+      password: whz1314  # Redis密码（如果有，通过环境变量配置）
       database: 0
       lettuce:
         pool:

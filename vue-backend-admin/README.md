@@ -40,6 +40,18 @@ npm run dev
 npm run build
 ```
 
+构建完成后，会在 `dist` 目录生成静态文件。
+
+### 部署到 1Panel
+
+详细的 1Panel 部署指南请查看：[DEPLOY_1PANEL.md](./DEPLOY_1PANEL.md)
+
+**快速部署步骤：**
+1. 运行 `deploy.bat`（Windows）或 `npm run build`（所有平台）
+2. 在 1Panel 中创建静态网站
+3. 上传 `dist` 文件夹内容到网站根目录
+4. 配置 Nginx 反向代理（参考 `nginx.conf.example`）
+
 ## 项目结构
 
 ```
