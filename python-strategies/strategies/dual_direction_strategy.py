@@ -158,35 +158,11 @@ class DualDirectionStrategy(BaseStrategy):
         short_open_rate = safe_float(short_open_rate_raw) if short_open_rate_raw is not None else None
         short_current_rate = current_price
         
-        # 获取杠杆倍数（用于计算实际盈亏百分比）
-        # 优先从position获取，其次从strategy_params，最后使用默认值50
-        long_leverage_raw = position.get("longLeverage", 0)
-        short_leverage_raw = position.get("shortLeverage", 0)
-        long_leverage = safe_float(long_leverage_raw, 0.0)
-        short_leverage = safe_float(short_leverage_raw, 0.0)
+        # 注意：现在Java传递的盈利百分比已经是正确的百分比，不需要再乘以杠杆
+        # 直接使用传递的盈利百分比进行判断
         
-        # 如果position中没有杠杆信息，尝试从strategy_params获取
-        if long_leverage == 0.0:
-            long_leverage = safe_float(strategy_params.get("leverage"), 50.0)
-        if short_leverage == 0.0:
-            short_leverage = safe_float(strategy_params.get("leverage"), 50.0)
-        
-        # 如果还是没有，使用默认值50（从图片看是50x）
-        if long_leverage == 0.0:
-            long_leverage = 50.0
-        if short_leverage == 0.0:
-            short_leverage = 50.0
-        
-        # 将盈利百分比乘以杠杆倍数（因为Java传递的是相对于保证金的百分比，需要乘以杠杆才是实际盈亏百分比）
-        long_profit_pct_with_leverage = long_profit_pct * long_leverage
-        short_profit_pct_with_leverage = short_profit_pct * short_leverage
-        
-        # 调试日志：打印原始值和转换后的值
-        logger.info(f"盈利百分比原始值: longProfitPct_raw={long_profit_pct_raw} (type={type(long_profit_pct_raw)}), "
-                   f"shortProfitPct_raw={short_profit_pct_raw} (type={type(short_profit_pct_raw)})")
-        logger.info(f"杠杆倍数: long_leverage={long_leverage}, short_leverage={short_leverage}")
-        logger.info(f"盈利百分比转换后（未乘杠杆）: longProfitPct={long_profit_pct:.2f}%, shortProfitPct={short_profit_pct:.2f}%")
-        logger.info(f"盈利百分比转换后（乘以杠杆）: longProfitPct={long_profit_pct_with_leverage:.2f}%, shortProfitPct={short_profit_pct_with_leverage:.2f}%")
+        # 调试日志：打印盈利百分比
+        logger.info(f"盈利百分比: longProfitPct={long_profit_pct:.2f}%, shortProfitPct={short_profit_pct:.2f}%")
         
         # 如果position中没有盈利信息，尝试从strategy_params获取
         # 注意：只有当position中确实没有提供这些字段时，才从strategy_params获取
@@ -201,9 +177,7 @@ class DualDirectionStrategy(BaseStrategy):
                         long_profit_pct = safe_float(opp_pos.get("profitPct", 0.0), 0.0)
                         long_add_count = opp_pos.get("addCount", 0)
                         long_open_rate = safe_float(opp_pos.get("openRate")) if opp_pos.get("openRate") is not None else None
-                        # 如果从strategy_params获取，需要重新计算乘以杠杆后的值
-                        long_profit_pct_with_leverage = long_profit_pct * long_leverage
-                        logger.info(f"从strategy_params获取多头盈利信息，重新计算乘以杠杆后的值: {long_profit_pct_with_leverage:.2f}%")
+                        logger.info(f"从strategy_params获取多头盈利信息: {long_profit_pct:.2f}%")
                         break
         
         if "shortProfitPct" not in position and "shortProfitCount" not in position:
@@ -215,9 +189,7 @@ class DualDirectionStrategy(BaseStrategy):
                         short_profit_pct = safe_float(opp_pos.get("profitPct", 0.0), 0.0)
                         short_add_count = opp_pos.get("addCount", 0)
                         short_open_rate = safe_float(opp_pos.get("openRate")) if opp_pos.get("openRate") is not None else None
-                        # 如果从strategy_params获取，需要重新计算乘以杠杆后的值
-                        short_profit_pct_with_leverage = short_profit_pct * short_leverage
-                        logger.info(f"从strategy_params获取空头盈利信息，重新计算乘以杠杆后的值: {short_profit_pct_with_leverage:.2f}%")
+                        logger.info(f"从strategy_params获取空头盈利信息: {short_profit_pct:.2f}%")
                         break
         
         # 如果没有开仓价格，尝试计算盈利百分比（备用方案）
@@ -228,23 +200,19 @@ class DualDirectionStrategy(BaseStrategy):
             if long_profit_pct == 0.0:
                 calculated_long_profit_pct = ((long_current_rate - long_open_rate) / long_open_rate) * 100
                 long_profit_pct = calculated_long_profit_pct
-                # 重新计算乘以杠杆后的值
-                long_profit_pct_with_leverage = long_profit_pct * long_leverage
-                logger.warning(f"多头持仓未提供盈利百分比，使用价格差计算（不准确）: {long_profit_pct:.2f}%, 乘以杠杆后: {long_profit_pct_with_leverage:.2f}%")
+                logger.warning(f"多头持仓未提供盈利百分比，使用价格差计算（不准确）: {long_profit_pct:.2f}%")
         if short_quantity > 0 and short_open_rate and short_open_rate > 0:
             # 如果position中没有提供盈利百分比，才使用价格差计算（不准确，仅作备用）
             if short_profit_pct == 0.0:
                 calculated_short_profit_pct = ((short_open_rate - short_current_rate) / short_open_rate) * 100
                 short_profit_pct = calculated_short_profit_pct
-                # 重新计算乘以杠杆后的值
-                short_profit_pct_with_leverage = short_profit_pct * short_leverage
-                logger.warning(f"空头持仓未提供盈利百分比，使用价格差计算（不准确）: {short_profit_pct:.2f}%, 乘以杠杆后: {short_profit_pct_with_leverage:.2f}%")
+                logger.warning(f"空头持仓未提供盈利百分比，使用价格差计算（不准确）: {short_profit_pct:.2f}%")
         
-        # 调试日志：打印盈利信息（使用乘以杠杆后的百分比）
+        # 调试日志：打印盈利信息
         logger.info(f"双向策略盈利信息: long_quantity={long_quantity}, short_quantity={short_quantity}, "
-                    f"long_profit_pct（乘杠杆）={long_profit_pct_with_leverage:.2f}%, short_profit_pct（乘杠杆）={short_profit_pct_with_leverage:.2f}%, "
-                    f"long_profit_count={long_profit_count}, short_profit_count={short_profit_count}, "
-                    f"long_open_rate={long_open_rate}, short_open_rate={short_open_rate}, current_price={current_price}")
+                   f"long_profit_pct={long_profit_pct:.2f}%, short_profit_pct={short_profit_pct:.2f}%, "
+                   f"long_profit_count={long_profit_count}, short_profit_count={short_profit_count}, "
+                   f"long_open_rate={long_open_rate}, short_open_rate={short_open_rate}, current_price={current_price}")
         
         # 4. 策略决策
         signal = "HOLD"
@@ -253,64 +221,98 @@ class DualDirectionStrategy(BaseStrategy):
         reason = ""
         margin = None  # 开仓/补仓金额（USDT）
         
-        # 4.1 优先检查是否需要补齐仓位：如果只有单边持仓，必须先补齐另一边（双向策略的核心）
-        # 注意：这个检查必须在平仓和补仓之前，确保双向策略始终保持多空平衡
-        if long_quantity > 0 and short_quantity == 0:
-            # 只有多头，需要开空头（补齐双向仓位）
-            signal = "SELL"  # 开空头 = 卖出
-            position_ratio = 0.5
-            confidence = 0.6
-            reason = "只有多头持仓，需要开空头（补齐双向仓位）"
-            # 开仓金额：1U（与多头保持一致）
-            margin = 1.0
-        elif long_quantity == 0 and short_quantity > 0:
-            # 只有空头，需要开多头（补齐双向仓位）
-            signal = "BUY"  # 开多头 = 买入
-            position_ratio = 0.5
-            confidence = 0.6
-            reason = "只有空头持仓，需要开多头（补齐双向仓位）"
-            # 开仓金额：1U（与空头保持一致）
-            margin = 1.0
+        # 4.1 优先检查平仓条件：盈利50%时平仓（最高优先级）
+        # 注意：平仓条件必须优先于补齐仓位，避免在应该平仓时却去开仓
+        # 盈利百分比必须严格大于等于50.0（Java传递的已经是正确的百分比）
         
-        # 4.2 检查平仓条件：盈利50%时平仓（但双向策略需要同时有多空持仓才平仓）
-        # 注意：双向策略只有在同时有多空持仓时，才允许平仓
-        # 盈利百分比必须严格大于等于50.0，且必须是基于保证金的盈亏百分比乘以杠杆后的实际盈亏百分比
-        
-        # 调试日志：检查平仓条件（使用乘以杠杆后的百分比）
+        # 调试日志：检查平仓条件
         logger.info(f"平仓条件检查: long_quantity={long_quantity}, short_quantity={short_quantity}, "
-                   f"long_profit_pct（乘杠杆）={long_profit_pct_with_leverage:.2f}%, short_profit_pct（乘杠杆）={short_profit_pct_with_leverage:.2f}%, "
-                   f"long_profit_pct>=50.0={long_profit_pct_with_leverage >= 50.0}, short_profit_pct>=50.0={short_profit_pct_with_leverage >= 50.0}")
+                   f"long_profit_pct={long_profit_pct:.2f}%, short_profit_pct={short_profit_pct:.2f}%, "
+                   f"long_profit_pct>=50.0={long_profit_pct >= 50.0}, short_profit_pct>=50.0={short_profit_pct >= 50.0}")
         
-        # 注意：平仓条件使用乘以杠杆后的盈利百分比
-        if long_quantity > 0 and short_quantity > 0 and long_profit_pct_with_leverage >= 50.0:
+        # 注意：双向策略只有在同时有多空持仓时，才允许平仓（避免单边持仓时误平仓）
+        if long_quantity > 0 and short_quantity > 0 and long_profit_pct >= 50.0:
             signal = "SELL"
             position_ratio = 1.0  # 全部平仓
             confidence = 0.9
-            reason = f"多头盈利{long_profit_pct_with_leverage:.2f}%达到平仓条件（双向策略，需要>=50%，已乘杠杆{long_leverage}x）"
+            reason = f"多头盈利{long_profit_pct:.2f}%达到平仓条件（双向策略，需要>=50%）"
             logger.info(f"✅ 触发平仓条件: {reason}")
             # 平仓不需要margin
-        elif long_quantity > 0 and short_quantity > 0 and short_profit_pct_with_leverage >= 50.0:
+        elif long_quantity > 0 and short_quantity > 0 and short_profit_pct >= 50.0:
             signal = "BUY"  # 平空头 = 买入
             position_ratio = 1.0  # 全部平仓
             confidence = 0.9
-            reason = f"空头盈利{short_profit_pct_with_leverage:.2f}%达到平仓条件（双向策略，需要>=50%，已乘杠杆{short_leverage}x）"
+            reason = f"空头盈利{short_profit_pct:.2f}%达到平仓条件（双向策略，需要>=50%）"
             logger.info(f"✅ 触发平仓条件: {reason}")
             # 平仓不需要margin
         elif long_quantity > 0 and short_quantity > 0:
             # 如果有多空持仓但未达到平仓条件，记录原因
-            logger.info(f"未触发平仓: 多头盈利{long_profit_pct_with_leverage:.2f}% < 50%, 空头盈利{short_profit_pct_with_leverage:.2f}% < 50%")
+            logger.info(f"未触发平仓: 多头盈利{long_profit_pct:.2f}% < 50%, 空头盈利{short_profit_pct:.2f}% < 50%")
         
-        # 4.3 检查补仓条件：盈利4次后，另一方向亏损时补仓（使用乘以杠杆后的盈利百分比判断亏损）
+        # 4.2 检查是否需要补齐仓位：如果只有单边持仓，必须先补齐另一边（双向策略的核心）
+        # 注意：这个检查必须在平仓之后，确保在应该平仓时不会去开仓
+        # 但是，如果最近刚平仓（60秒内），需要等待冷却期，避免频繁开仓
+        
+        # 只有在没有触发平仓的情况下，才检查补齐仓位
+        if signal == "HOLD":
+            # 检查最近平仓记录（冷却期检查）
+            recent_close_positions = strategy_params.get("recentClosePositions", [])
+            cooldown_seconds = 60  # 冷却期：60秒
+            # 获取当前时间戳（毫秒）
+            import time
+            current_time_ms = int(market_data.get("timestamp", 0))
+            if current_time_ms == 0:
+                current_time_ms = int(time.time() * 1000)
+            
+            # 检查是否在冷却期内
+            in_cooldown = False
+            cooldown_reason = ""
+            if recent_close_positions:
+                for close_info in recent_close_positions:
+                    close_time_ms = close_info.get("closeTime", 0)
+                    close_side = close_info.get("side", "")
+                    if close_time_ms > 0:
+                        time_diff_seconds = (current_time_ms - close_time_ms) / 1000.0
+                        if time_diff_seconds < cooldown_seconds:
+                            in_cooldown = True
+                            cooldown_reason = f"最近{time_diff_seconds:.1f}秒内平仓了{close_side}方向（冷却期{cooldown_seconds}秒）"
+                            logger.info(f"⚠️ 冷却期检查: {cooldown_reason}")
+                            break
+            
+            # 只有在非冷却期内才补齐仓位
+            if not in_cooldown:
+                if long_quantity > 0 and short_quantity == 0:
+                    # 只有多头，需要开空头（补齐双向仓位）
+                    signal = "SELL"  # 开空头 = 卖出
+                    position_ratio = 0.5
+                    confidence = 0.6
+                    reason = "只有多头持仓，需要开空头（补齐双向仓位）"
+                    # 开仓金额：1U（与多头保持一致）
+                    margin = 1.0
+                elif long_quantity == 0 and short_quantity > 0:
+                    # 只有空头，需要开多头（补齐双向仓位）
+                    signal = "BUY"  # 开多头 = 买入
+                    position_ratio = 0.5
+                    confidence = 0.6
+                    reason = "只有空头持仓，需要开多头（补齐双向仓位）"
+                    # 开仓金额：1U（与空头保持一致）
+                    margin = 1.0
+            else:
+                # 在冷却期内，不补齐仓位
+                logger.info(f"冷却期内，跳过补齐仓位: {cooldown_reason}")
+                # signal保持为HOLD，不执行任何操作
+        
+        # 4.3 检查补仓条件：盈利4次后，另一方向亏损时补仓
         elif long_quantity > 0 and short_quantity > 0 and long_profit_count >= 4:
-            # 多头盈利，检查空头是否亏损（使用乘以杠杆后的百分比）
+            # 多头盈利，检查空头是否亏损
             max_add_allowed = long_profit_count // 4  # 每4次盈利=1次补仓机会
             
-            if short_quantity > 0 and short_profit_pct_with_leverage < 0 and short_add_count < max_add_allowed:
+            if short_quantity > 0 and short_profit_pct < 0 and short_add_count < max_add_allowed:
                 # 空头亏损，可以补仓
                 signal = "SELL"  # 增加空头 = 卖出
                 position_ratio = 0.5  # 补仓金额：固定使用0.5U（盈利开仓1U的一半）
                 confidence = 0.7
-                reason = f"多头盈利{long_profit_count}次，空头亏损{short_profit_pct_with_leverage:.2f}%（已乘杠杆{short_leverage}x），需要补空头（已补{short_add_count}/{max_add_allowed}）"
+                reason = f"多头盈利{long_profit_count}次，空头亏损{short_profit_pct:.2f}%，需要补空头（已补{short_add_count}/{max_add_allowed}）"
                 # 补仓金额：0.5U
                 margin = 0.5
             elif short_quantity == 0:
@@ -323,15 +325,15 @@ class DualDirectionStrategy(BaseStrategy):
                 margin = 0.5
         
         elif long_quantity > 0 and short_quantity > 0 and short_profit_count >= 4:
-            # 空头盈利，检查多头是否亏损（使用乘以杠杆后的百分比）
+            # 空头盈利，检查多头是否亏损
             max_add_allowed = short_profit_count // 4  # 每4次盈利=1次补仓机会
             
-            if long_quantity > 0 and long_profit_pct_with_leverage < 0 and long_add_count < max_add_allowed:
+            if long_quantity > 0 and long_profit_pct < 0 and long_add_count < max_add_allowed:
                 # 多头亏损，可以补仓
                 signal = "BUY"  # 增加多头 = 买入
                 position_ratio = 0.5  # 补仓金额：固定使用0.5U（盈利开仓1U的一半）
                 confidence = 0.7
-                reason = f"空头盈利{short_profit_count}次，多头亏损{long_profit_pct_with_leverage:.2f}%（已乘杠杆{long_leverage}x），需要补多头（已补{long_add_count}/{max_add_allowed}）"
+                reason = f"空头盈利{short_profit_count}次，多头亏损{long_profit_pct:.2f}%，需要补多头（已补{long_add_count}/{max_add_allowed}）"
                 # 补仓金额：0.5U
                 margin = 0.5
         
@@ -344,9 +346,9 @@ class DualDirectionStrategy(BaseStrategy):
             # 初始开仓金额：1U（每个方向）
             margin = 1.0
         
-        # 最终决策日志（使用乘以杠杆后的百分比）
+        # 最终决策日志
         logger.info(f"策略最终决策: signal={signal}, position_ratio={position_ratio}, reason={reason}, "
-                   f"long_profit_pct（乘杠杆）={long_profit_pct_with_leverage:.2f}%, short_profit_pct（乘杠杆）={short_profit_pct_with_leverage:.2f}%")
+                   f"long_profit_pct={long_profit_pct:.2f}%, short_profit_pct={short_profit_pct:.2f}%")
         
         # 5. 返回结果
         result = {
@@ -357,14 +359,10 @@ class DualDirectionStrategy(BaseStrategy):
                 "longQuantity": float(long_quantity),
                 "shortQuantity": float(short_quantity),
                 "longProfitCount": int(long_profit_count),
-                "longProfitPct": float(long_profit_pct_with_leverage),  # 返回乘以杠杆后的百分比
-                "longProfitPctRaw": float(long_profit_pct),  # 保留原始百分比（未乘杠杆）
-                "longLeverage": float(long_leverage),
+                "longProfitPct": float(long_profit_pct),  # 返回盈利百分比
                 "longAddCount": int(long_add_count),
                 "shortProfitCount": int(short_profit_count),
-                "shortProfitPct": float(short_profit_pct_with_leverage),  # 返回乘以杠杆后的百分比
-                "shortProfitPctRaw": float(short_profit_pct),  # 保留原始百分比（未乘杠杆）
-                "shortLeverage": float(short_leverage),
+                "shortProfitPct": float(short_profit_pct),  # 返回盈利百分比
                 "shortAddCount": int(short_add_count),
                 "reason": reason,
                 "strategy": "DualDirectionStrategy"

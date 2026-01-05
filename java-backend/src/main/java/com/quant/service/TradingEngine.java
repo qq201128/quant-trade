@@ -29,6 +29,7 @@ public class TradingEngine {
     private final OrderService orderService;
     private final AccountService accountService;
     private final ProfitCountService profitCountService;
+    private final ClosePositionRecordService closePositionRecordService;
     
     // 缓存上一次的盈利状态，避免重复计数
     // Key: userId:symbol:side, Value: 是否达到50%盈利
@@ -79,7 +80,7 @@ public class TradingEngine {
                 .strategyName(strategyName)
                 .symbol(symbol)
                 .marketData(fetchMarketData(userId, symbol))
-                .strategyParams(getStrategyParams(strategyName))
+                .strategyParams(getStrategyParams(userId, symbol, strategyName))
                 .position(getCurrentPosition(userId, symbol))
                 .account(getAccountInfo())
                 .build();
@@ -150,9 +151,46 @@ public class TradingEngine {
         );
     }
     
-    private java.util.Map<String, Object> getStrategyParams(String strategyName) {
-        // 从配置获取策略参数
-        return java.util.Map.of("ma_period", 20);
+    private java.util.Map<String, Object> getStrategyParams(String userId, String symbol, String strategyName) {
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        params.put("ma_period", 20);
+        
+        // 添加最近平仓记录信息（用于冷却期检查）
+        if (userId != null && symbol != null && closePositionRecordService != null) {
+            try {
+                // 获取最近60秒内的平仓记录
+                java.time.LocalDateTime now = java.time.LocalDateTime.now();
+                java.time.LocalDateTime startTime = now.minusSeconds(60);
+                java.util.List<com.quant.model.ClosePositionRecord> recentCloses = 
+                    closePositionRecordService.getClosePositionRecords(userId, symbol);
+                
+                // 过滤出最近60秒内的平仓记录
+                java.util.List<java.util.Map<String, Object>> recentCloseList = new java.util.ArrayList<>();
+                for (com.quant.model.ClosePositionRecord record : recentCloses) {
+                    if (record.getCreatedAt() != null && 
+                        record.getCreatedAt().isAfter(startTime) && 
+                        record.getCreatedAt().isBefore(now)) {
+                        java.util.Map<String, Object> closeInfo = new java.util.HashMap<>();
+                        closeInfo.put("side", record.getSide());
+                        closeInfo.put("closeTime", record.getCreatedAt().atZone(java.time.ZoneId.systemDefault())
+                            .toInstant().toEpochMilli());
+                        closeInfo.put("closeType", record.getCloseType());
+                        recentCloseList.add(closeInfo);
+                    }
+                }
+                
+                if (!recentCloseList.isEmpty()) {
+                    params.put("recentClosePositions", recentCloseList);
+                    log.debug("传递最近平仓记录到策略: userId={}, symbol={}, count={}", 
+                        userId, symbol, recentCloseList.size());
+                }
+            } catch (Exception e) {
+                log.warn("获取最近平仓记录失败: userId={}, symbol={}, error={}", 
+                    userId, symbol, e.getMessage());
+            }
+        }
+        
+        return params;
     }
     
     private java.util.Map<String, Object> getCurrentPosition(String userId, String symbol) {
