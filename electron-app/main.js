@@ -1,7 +1,58 @@
 const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 let mainWindow;
+
+// 判断是否为开发环境（必须在 app.whenReady() 之前可用）
+function isDevelopment() {
+  // 检查命令行参数
+  if (process.argv.includes('--dev')) {
+    return true;
+  }
+  // 检查环境变量
+  if (process.env.NODE_ENV === 'development' || process.env.ELECTRON_IS_DEV === '1') {
+    return true;
+  }
+  // 检查是否在开发模式下运行（非打包版本）
+  if (!app.isPackaged) {
+    return true;
+  }
+  return false;
+}
+
+// 读取配置文件
+function loadConfig() {
+  // 打包后的应用，配置文件可能在 asar 外部或内部
+  // 优先尝试 asar 外部（用户可修改），其次尝试 asar 内部
+  const possiblePaths = [
+    path.join(process.resourcesPath, 'config.json'), // 打包后 asar 外部
+    path.join(__dirname, 'config.json'), // 开发环境或 asar 内部
+    path.join(app.getAppPath(), 'config.json'), // 应用路径
+  ];
+  
+  for (const configPath of possiblePaths) {
+    try {
+      if (fs.existsSync(configPath)) {
+        const configData = fs.readFileSync(configPath, 'utf8');
+        const config = JSON.parse(configData);
+        console.log('成功加载配置文件:', configPath);
+        return config;
+      }
+    } catch (error) {
+      console.warn('读取配置文件失败:', configPath, error.message);
+    }
+  }
+  
+  // 默认配置
+  console.log('使用默认配置');
+  return {
+    backend: {
+      dev: 'http://localhost:8080',
+      prod: 'http://188.239.21.115:8080'
+    }
+  };
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -42,6 +93,11 @@ function createWindow() {
   // 窗口准备好后显示
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    
+    // 开发模式下自动打开开发者工具
+    if (isDevelopment()) {
+      mainWindow.webContents.openDevTools();
+    }
   });
 
   mainWindow.on('closed', () => {
@@ -132,6 +188,34 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
+// 设置自定义缓存目录，避免权限问题导致的缓存错误
+// 注意：必须在 app.whenReady() 之前调用
+if (isDevelopment()) {
+  // 开发环境：使用项目目录下的缓存文件夹
+  const userDataPath = path.join(__dirname, '.electron-data');
+  const cachePath = path.join(__dirname, '.electron-cache');
+  
+  // 确保目录存在
+  try {
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+    if (!fs.existsSync(cachePath)) {
+      fs.mkdirSync(cachePath, { recursive: true });
+    }
+  } catch (error) {
+    console.warn('创建缓存目录失败，使用默认路径:', error.message);
+  }
+  
+  // 设置路径（如果目录创建成功）
+  try {
+    app.setPath('userData', userDataPath);
+    app.setPath('cache', cachePath);
+  } catch (error) {
+    console.warn('设置缓存路径失败，使用默认路径:', error.message);
+  }
+}
+
 app.whenReady().then(() => {
   createMenu();
   createWindow();
@@ -149,9 +233,31 @@ app.on('window-all-closed', () => {
   }
 });
 
+
 // IPC通信处理
 ipcMain.handle('get-backend-url', () => {
-  // 从环境变量或配置文件读取后端URL
-  return process.env.BACKEND_URL || 'http://188.239.21.115:8080';
+  const isDev = isDevelopment();
+  const config = loadConfig();
+  
+  if (isDev) {
+    // 开发环境：优先使用环境变量，其次使用配置文件，最后使用默认值
+    const devUrl = process.env.BACKEND_URL || config.backend.dev || 'http://localhost:8080';
+    console.log('[环境] 开发模式，后端地址:', devUrl);
+    return devUrl;
+  } else {
+    // 生产环境：优先使用环境变量，其次使用配置文件，最后使用默认值
+    const prodUrl = process.env.BACKEND_URL || config.backend.prod || 'http://188.239.21.115:8080';
+    console.log('[环境] 生产模式，后端地址:', prodUrl);
+    return prodUrl;
+  }
+});
+
+// 暴露环境信息给渲染进程
+ipcMain.handle('get-env', () => {
+  return {
+    isDev: isDevelopment(),
+    isPackaged: app.isPackaged,
+    platform: process.platform
+  };
 });
 

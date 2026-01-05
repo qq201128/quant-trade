@@ -21,9 +21,9 @@ from strategies.dual_direction_strategy import DualDirectionStrategy
 
 # 策略注册表
 STRATEGY_REGISTRY = {
-    "ma_strategy": MAStrategy,
-    "ml_strategy": MLStrategy,
-    "grid_strategy": GridStrategy,
+    # "ma_strategy": MAStrategy,
+    # "ml_strategy": MLStrategy,
+    # "grid_strategy": GridStrategy,
     "dual_direction_strategy": DualDirectionStrategy,
 }
 

@@ -11,9 +11,6 @@ class TradingApp {
         this.socket = null;
         this.refreshInterval = null;  // 定时刷新器
         this.isWebSocketConnected = false;  // WebSocket连接状态
-        this.equityChart = null;  // 账户权益曲线图表
-        this.positionChart = null;  // 持仓分布图表
-        this.equityHistory = [];  // 权益历史数据
         
         this.init();
     }
@@ -51,7 +48,6 @@ class TradingApp {
         this.initExchangeSelector();
         this.initSettings();
         this.initLogout();
-        this.initCharts();  // 初始化图表
         this.initStrategies();  // 初始化策略配置
     }
     
@@ -976,10 +972,6 @@ class TradingApp {
         
         // 更新持仓表格
         this.updatePositionsTable(accountInfo.positions || []);
-        
-        // 更新图表
-        this.updateEquityChart(accountInfo);
-        this.updatePositionChart(accountInfo.positions || []);
     }
     
     updatePositionsTable(positions) {
@@ -1529,160 +1521,7 @@ class TradingApp {
         return parseFloat(num.toFixed(8)).toString();
     }
     
-    /**
-     * 初始化图表
-     */
-    initCharts() {
-        // 初始化账户权益曲线图表
-        const equityCtx = document.getElementById('equityChart');
-        if (equityCtx && typeof Chart !== 'undefined') {
-            this.equityChart = new Chart(equityCtx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: '账户权益 (USDT)',
-                        data: [],
-                        borderColor: 'rgb(75, 192, 192)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        tension: 0.1,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString('zh-CN', {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2
-                                    }) + ' USDT';
-                                },
-                                // 确保Y轴标签动态更新
-                                autoSkip: false,
-                                maxTicksLimit: 10
-                            },
-                            // 确保Y轴范围自动调整
-                            afterDataLimits: function(scale) {
-                                // 允许Chart.js自动计算范围
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        // 初始化持仓分布图表
-        const positionCtx = document.getElementById('positionChart');
-        if (positionCtx) {
-            this.positionChart = new Chart(positionCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        data: [],
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 206, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)',
-                            'rgba(255, 159, 64, 0.8)'
-                        ],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'right'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    return label + ': ' + value.toLocaleString('zh-CN', {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2
-                                    }) + ' USDT';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-    }
     
-    /**
-     * 更新账户权益曲线图表
-     */
-    updateEquityChart(accountInfo) {
-        if (!this.equityChart || !accountInfo) {
-            return;
-        }
-        
-        // 使用账户权益（equity），如果没有则使用总资产（totalBalance）
-        // 账户权益 = 总资产 + 未实现盈亏
-        const equity = parseFloat(accountInfo.equity) || parseFloat(accountInfo.totalBalance) || 0;
-        
-        if (equity <= 0) {
-            return;
-        }
-        
-        const now = new Date();
-        const timeLabel = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        
-        // 添加新数据点
-        this.equityHistory.push({
-            time: timeLabel,
-            value: equity
-        });
-        
-        // 只保留最近30个数据点
-        if (this.equityHistory.length > 30) {
-            this.equityHistory.shift();
-        }
-        
-        // 更新图表
-        this.equityChart.data.labels = this.equityHistory.map(h => h.time);
-        this.equityChart.data.datasets[0].data = this.equityHistory.map(h => h.value);
-        
-        // 确保Y轴自动调整范围
-        this.equityChart.options.scales.y.ticks.callback = function(value) {
-            return value.toLocaleString('zh-CN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }) + ' USDT';
-        };
-        
-        // 更新图表（使用 'none' 模式不显示动画，提高性能）
-        this.equityChart.update('none');
-    }
     
     /**
      * 初始化策略配置页面
@@ -1724,19 +1563,115 @@ class TradingApp {
             });
         }
         
-        // 添加策略按钮
-        const addStrategyBtn = document.getElementById('addStrategyBtn');
-        if (addStrategyBtn && !addStrategyBtn.dataset.listenerAttached) {
-            addStrategyBtn.dataset.listenerAttached = 'true';
-            addStrategyBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.handleAddStrategy();
-            });
+        // 加载策略列表
+        this.loadStrategies();
+    }
+    
+    /**
+     * 从后端 API 加载策略列表
+     */
+    async loadStrategies() {
+        const strategyList = document.getElementById('strategyList');
+        if (!strategyList) {
+            console.error('策略列表容器不存在');
+            return;
         }
         
-        // 刷新策略状态
-        this.refreshStrategiesStatus();
+        // 显示加载状态
+        strategyList.innerHTML = '<div class="loading-placeholder" style="text-align: center; padding: 40px; color: #999;"><i class="fas fa-spinner fa-spin"></i> 加载策略列表...</div>';
+        
+        try {
+            const response = await fetch(`${this.backendUrl}/api/strategy/list`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {})
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success && result.strategies && Array.isArray(result.strategies)) {
+                // 渲染策略列表
+                this.renderStrategies(result.strategies);
+                
+                // 加载完成后刷新策略状态
+                if (this.userId && this.token) {
+                    this.refreshStrategiesStatus();
+                }
+            } else {
+                throw new Error('策略列表格式错误');
+            }
+        } catch (error) {
+            console.error('加载策略列表失败:', error);
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'btn btn-primary btn-sm mt-3';
+            retryBtn.textContent = '重试';
+            retryBtn.onclick = () => this.loadStrategies();
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-placeholder';
+            errorDiv.style.cssText = 'text-align: center; padding: 40px; color: #dc3545;';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i><br>
+                加载策略列表失败: ${this.escapeHtml(error.message)}<br>
+            `;
+            errorDiv.appendChild(retryBtn);
+            
+            strategyList.innerHTML = '';
+            strategyList.appendChild(errorDiv);
+        }
+    }
+    
+    /**
+     * 渲染策略列表
+     */
+    renderStrategies(strategies) {
+        const strategyList = document.getElementById('strategyList');
+        if (!strategyList) {
+            console.error('策略列表容器不存在');
+            return;
+        }
+        
+        if (!strategies || strategies.length === 0) {
+            strategyList.innerHTML = '<div class="empty-placeholder" style="text-align: center; padding: 40px; color: #999;">暂无可用策略</div>';
+            return;
+        }
+        
+        // 生成策略卡片 HTML
+        const strategiesHTML = strategies.map(strategy => {
+            return `
+                <div class="strategy-card" data-strategy-type="${strategy.type}">
+                    <div class="strategy-header">
+                        <h3>${this.escapeHtml(strategy.name)}</h3>
+                        <span class="strategy-badge">${this.escapeHtml(strategy.type)}</span>
+                    </div>
+                    <div class="strategy-body">
+                        <p>${this.escapeHtml(strategy.description || '')}</p>
+                        <div class="strategy-actions">
+                            <button class="btn btn-sm btn-primary">配置</button>
+                            <button class="btn btn-sm btn-success">启动</button>
+                            <button class="btn btn-sm btn-danger">停止</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        strategyList.innerHTML = strategiesHTML;
+    }
+    
+    /**
+     * HTML 转义，防止 XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     /**
@@ -2187,54 +2122,6 @@ class TradingApp {
         }
     }
     
-    /**
-     * 处理添加策略
-     */
-    handleAddStrategy() {
-        alert('添加策略功能开发中...\n\n当前支持三种策略类型：\n1. 普通策略 (NORMAL)\n2. 网格策略 (GRID)\n3. 双向策略 (DUAL_DIRECTION)');
-    }
-    
-    /**
-     * 更新持仓分布图表
-     */
-    updatePositionChart(positions) {
-        if (!this.positionChart) {
-            return;
-        }
-        
-        if (!positions || positions.length === 0) {
-            // 没有持仓时显示空状态
-            this.positionChart.data.labels = ['暂无持仓'];
-            this.positionChart.data.datasets[0].data = [1];
-            this.positionChart.data.datasets[0].backgroundColor = ['rgba(200, 200, 200, 0.5)'];
-            this.positionChart.update('none');
-            return;
-        }
-        
-        // 计算每个持仓的价值
-        const positionData = positions.map(pos => {
-            const quantity = parseFloat(pos.quantity) || 0;
-            const currentPrice = parseFloat(pos.currentPrice) || 0;
-            const value = quantity * currentPrice;
-            return {
-                symbol: pos.symbol,
-                value: value
-            };
-        }).filter(p => p.value > 0);
-        
-        // 更新图表数据
-        this.positionChart.data.labels = positionData.map(p => p.symbol);
-        this.positionChart.data.datasets[0].data = positionData.map(p => p.value);
-        this.positionChart.data.datasets[0].backgroundColor = [
-            'rgba(255, 99, 132, 0.8)',
-            'rgba(54, 162, 235, 0.8)',
-            'rgba(255, 206, 86, 0.8)',
-            'rgba(75, 192, 192, 0.8)',
-            'rgba(153, 102, 255, 0.8)',
-            'rgba(255, 159, 64, 0.8)'
-        ].slice(0, positionData.length);
-        this.positionChart.update('none');
-    }
 }
 
 // 全局错误处理，捕获未定义的 dragEvent 错误

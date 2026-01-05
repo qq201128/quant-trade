@@ -1,5 +1,7 @@
 package com.quant.strategy;
 
+// 已禁用：策略类型枚举中已注释掉GRID
+/*
 import com.quant.model.StrategyRequest;
 import com.quant.model.StrategyResponse;
 import com.quant.model.StrategyType;
@@ -8,10 +10,9 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
-/**
- * 网格策略实现
- * 在价格区间内设置买卖网格，自动低买高卖
- */
+网格策略实现
+在价格区间内设置买卖网格，自动低买高卖
+
 @Slf4j
 @Component
 public class GridStrategy implements BaseStrategy {
@@ -72,6 +73,7 @@ public class GridStrategy implements BaseStrategy {
         return "网格策略";
     }
 }
+*/
 
 
 

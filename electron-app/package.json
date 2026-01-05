@@ -35,7 +35,16 @@
     },
     "files": [
       "**/*",
-      "!node_modules/**/*"
+      "!node_modules/**/*",
+      "!dist/**/*",
+      "!*.md",
+      "!*.log"
+    ],
+    "extraFiles": [
+      {
+        "from": "config.json",
+        "to": "."
+      }
     ],
     "win": {
       "target": "nsis",

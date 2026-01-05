@@ -205,8 +205,8 @@ public class StrategyExecutionService {
                             .block(); // 等待执行完成
                 }
                 
-                // 等待30秒后再次执行
-                Thread.sleep(30000);
+                // 等待10秒后再次执行
+                Thread.sleep(10000);
                 
             } catch (InterruptedException e) {
                 log.info("策略执行循环被中断: userId={}, strategyName={}", userId, strategyName);
@@ -250,11 +250,13 @@ public class StrategyExecutionService {
         // 根据策略类型映射到Python策略名称
         if ("DUAL_DIRECTION".equals(strategyType)) {
             return "dual_direction_strategy";
-        } else if ("GRID".equals(strategyType)) {
-            return "grid_strategy";
-        } else if ("NORMAL".equals(strategyType)) {
-            return "ma_strategy"; // 默认使用均线策略
         }
+        // 已禁用的策略类型
+        // else if ("GRID".equals(strategyType)) {
+        //     return "grid_strategy";
+        // } else if ("NORMAL".equals(strategyType)) {
+        //     return "ma_strategy"; // 默认使用均线策略
+        // }
         
         // 默认返回小写下划线格式
         return strategyName.toLowerCase().replaceAll("\\s+", "_") + "_strategy";

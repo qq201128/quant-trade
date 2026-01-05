@@ -169,20 +169,6 @@
                         </div>
                     </div>
 
-                    <div class="dashboard-charts">
-                        <div class="chart-card">
-                            <h3>账户权益曲线</h3>
-                            <div class="chart-container">
-                                <canvas id="equityChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="chart-card">
-                            <h3>持仓分布</h3>
-                            <div class="chart-container">
-                                <canvas id="positionChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- 账户信息页面 -->
@@ -265,52 +251,11 @@
                 <div id="strategiesPage" class="page">
                     <div class="page-header">
                         <h2>策略配置</h2>
-                        <button class="btn btn-success" id="addStrategyBtn">
-                            <i class="fas fa-plus"></i> 添加策略
-                        </button>
                     </div>
                     <div class="strategy-list" id="strategyList">
-                        <div class="strategy-card">
-                            <div class="strategy-header">
-                                <h3>普通策略</h3>
-                                <span class="strategy-badge">NORMAL</span>
-                            </div>
-                            <div class="strategy-body">
-                                <p>基于技术指标、机器学习等的传统策略</p>
-                                <div class="strategy-actions">
-                                    <button class="btn btn-sm btn-primary">配置</button>
-                                    <button class="btn btn-sm btn-success">启动</button>
-                                    <button class="btn btn-sm btn-danger">停止</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="strategy-card">
-                            <div class="strategy-header">
-                                <h3>网格策略</h3>
-                                <span class="strategy-badge">GRID</span>
-                            </div>
-                            <div class="strategy-body">
-                                <p>在价格区间内设置买卖网格，自动低买高卖</p>
-                                <div class="strategy-actions">
-                                    <button class="btn btn-sm btn-primary">配置</button>
-                                    <button class="btn btn-sm btn-success">启动</button>
-                                    <button class="btn btn-sm btn-danger">停止</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="strategy-card">
-                            <div class="strategy-header">
-                                <h3>双向策略</h3>
-                                <span class="strategy-badge">DUAL_DIRECTION</span>
-                            </div>
-                            <div class="strategy-body">
-                                <p>同时持有多空仓位，通过价差获利</p>
-                                <div class="strategy-actions">
-                                    <button class="btn btn-sm btn-primary">配置</button>
-                                    <button class="btn btn-sm btn-success">启动</button>
-                                    <button class="btn btn-sm btn-danger">停止</button>
-                                </div>
-                            </div>
+                        <!-- 策略列表将从后端 API 动态加载 -->
+                        <div class="loading-placeholder" style="text-align: center; padding: 40px; color: #999;">
+                            <i class="fas fa-spinner fa-spin"></i> 加载策略列表...
                         </div>
                     </div>
                 </div>

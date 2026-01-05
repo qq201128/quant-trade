@@ -1,6 +1,7 @@
 package com.quant.controller;
 
 import com.quant.model.StrategyConfig;
+import com.quant.model.StrategyType;
 import com.quant.service.StrategyConfigService;
 import com.quant.service.StrategyExecutionService;
 import lombok.RequiredArgsConstructor;
@@ -8,9 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 策略管理控制器
@@ -135,21 +138,28 @@ public class StrategyController {
     
     /**
      * 获取策略列表
+     * 从 StrategyType 枚举动态生成策略列表
      */
     @GetMapping("/list")
     public ResponseEntity<Map<String, Object>> getStrategyList() {
         log.info("收到获取策略列表请求");
         
-        // TODO: 从数据库或配置中获取策略列表
+        // 从 StrategyType 枚举动态生成策略列表
+        List<Map<String, Object>> strategies = Arrays.stream(StrategyType.values())
+                .map(strategyType -> {
+                    Map<String, Object> strategy = new HashMap<>();
+                    strategy.put("name", strategyType.getName());
+                    strategy.put("type", strategyType.getCode());
+                    strategy.put("description", strategyType.getDescription());
+                    return strategy;
+                })
+                .collect(Collectors.toList());
         
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("strategies", new Object[]{
-            Map.of("name", "普通策略", "type", "NORMAL", "description", "基于技术指标、机器学习等的传统策略"),
-            Map.of("name", "网格策略", "type", "GRID", "description", "在价格区间内设置买卖网格，自动低买高卖"),
-            Map.of("name", "双向策略", "type", "DUAL_DIRECTION", "description", "同时持有多空仓位，通过价差获利")
-        });
+        response.put("strategies", strategies);
         
+        log.info("返回策略列表，共 {} 个策略", strategies.size());
         return ResponseEntity.ok(response);
     }
     

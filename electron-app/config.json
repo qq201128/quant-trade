@@ -1,0 +1,8 @@
+{
+  "backend": {
+    "dev": "http://localhost:8080",
+    "prod": "http://188.239.21.115:8080"
+  },
+  "description": "Electron应用配置文件，dev为开发环境，prod为生产环境"
+}
+
