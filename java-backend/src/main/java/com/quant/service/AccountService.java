@@ -36,6 +36,7 @@ public class AccountService {
     private final ExchangeConfigService exchangeConfigService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ClosePositionRecordService closePositionRecordService;
+    private final ProfitCountService profitCountService;
     
     // 缓存账户信息（userId -> AccountInfo）
     private final Map<String, AccountInfo> accountCache = new ConcurrentHashMap<>();
@@ -652,9 +653,20 @@ public class AccountService {
                     .block(); // 阻塞等待订单提交完成
             
             if (result != null && result.getOrderId() != null) {
-                log.info("平仓成功: userId={}, symbol={}, side={}, quantity={}, orderId={}", 
+                log.info("平仓成功: userId={}, symbol={}, side={}, quantity={}, orderId={}",
                         userId, symbol, side, closeQuantity, result.getOrderId());
-                
+
+                // 平仓成功，增加该方向的盈利次数
+                try {
+                    profitCountService.incrementProfitCount(userId, symbol, side).block();
+                    // 清零另一方向的盈利次数和补仓次数
+                    String oppositeSide = "LONG".equals(side) ? "SHORT" : "LONG";
+                    profitCountService.resetCounts(userId, symbol, oppositeSide).block();
+                } catch (Exception e) {
+                    log.error("更新盈利次数失败: userId={}, symbol={}, side={}, error={}",
+                            userId, symbol, side, e.getMessage());
+                }
+
                 // 记录平仓信息（手动平仓）
                 try {
                     closePositionRecordService.recordClosePosition(
@@ -815,9 +827,20 @@ public class AccountService {
                                         })
                                         .map(order -> {
                                             if (order != null && order.getOrderId() != null) {
-                                                log.info("平仓成功: userId={}, symbol={}, side={}, quantity={}, orderId={}", 
+                                                log.info("平仓成功: userId={}, symbol={}, side={}, quantity={}, orderId={}",
                                                         userId, symbol, side, closeQuantity, order.getOrderId());
-                                                
+
+                                                // 平仓成功，增加该方向的盈利次数
+                                                try {
+                                                    profitCountService.incrementProfitCount(userId, symbol, side).block();
+                                                    // 清零另一方向的盈利次数和补仓次数
+                                                    String oppositeSide = "LONG".equals(side) ? "SHORT" : "LONG";
+                                                    profitCountService.resetCounts(userId, symbol, oppositeSide).block();
+                                                } catch (Exception e) {
+                                                    log.error("更新盈利次数失败: userId={}, symbol={}, side={}, error={}",
+                                                            userId, symbol, side, e.getMessage());
+                                                }
+
                                                 // 记录平仓信息（策略平仓）
                                                 try {
                                                     closePositionRecordService.recordClosePosition(

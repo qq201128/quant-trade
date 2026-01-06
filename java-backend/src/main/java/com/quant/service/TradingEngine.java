@@ -30,11 +30,7 @@ public class TradingEngine {
     private final AccountService accountService;
     private final ProfitCountService profitCountService;
     private final ClosePositionRecordService closePositionRecordService;
-    
-    // 缓存上一次的盈利状态，避免重复计数
-    // Key: userId:symbol:side, Value: 是否达到50%盈利
-    private final java.util.Map<String, Boolean> previousProfit50Status = new java.util.concurrent.ConcurrentHashMap<>();
-    
+
     /**
      * 执行交易流程
      */
@@ -46,7 +42,7 @@ public class TradingEngine {
      * 执行交易流程（带userId）
      */
     public Mono<Void> executeTrading(String userId, String symbol, String strategyName) {
-        log.info("开始执行交易流程: userId={}, symbol={}, strategyName={}", userId, symbol, strategyName);
+//        log.info("开始执行交易流程: userId={}, symbol={}, strategyName={}", userId, symbol, strategyName);
         
         // 0. 先尝试获取持仓信息，确保网络连接正常
         // 如果获取持仓失败（网络错误），直接返回，不执行策略，避免误开仓/补仓
@@ -96,8 +92,8 @@ public class TradingEngine {
                     
                     // 4. 执行订单
                     return orderService.executeOrder(userId, symbol, response)
-                            .doOnSuccess(orderId -> 
-                                log.info("订单执行成功: orderId={}", orderId))
+//                            .doOnSuccess(orderId ->
+//                                log.info("订单执行成功: orderId={}", orderId))
                             .doOnError(error -> 
                                 log.error("订单执行失败: {}", error.getMessage()))
                             .then();
@@ -244,51 +240,18 @@ public class TradingEngine {
                         }
                     }
                     
-                    // 从Redis获取盈利次数和补仓次数，并处理盈利达到50%的情况
+                    // 从Redis获取盈利次数和补仓次数
                     if (userId != null && profitCountService != null) {
                         try {
-                            // 计算实际盈亏百分比（乘以杠杆）
-                            BigDecimal longProfitPctWithLeverage = longProfitPct.multiply(
-                                    new BigDecimal(longLeverage > 0 ? longLeverage : 50));
-                            BigDecimal shortProfitPctWithLeverage = shortProfitPct.multiply(
-                                    new BigDecimal(shortLeverage > 0 ? shortLeverage : 50));
-                            
-                            // 检查是否达到50%盈利（使用乘以杠杆后的百分比）
-                            boolean longReached50 = longQuantity.compareTo(BigDecimal.ZERO) > 0 
-                                    && longProfitPctWithLeverage.compareTo(new BigDecimal("50.0")) >= 0;
-                            boolean shortReached50 = shortQuantity.compareTo(BigDecimal.ZERO) > 0 
-                                    && shortProfitPctWithLeverage.compareTo(new BigDecimal("50.0")) >= 0;
-                            
-                            // 获取之前的盈利状态（从缓存中获取）
-                            String longKey = userId + ":" + symbol + ":LONG";
-                            String shortKey = userId + ":" + symbol + ":SHORT";
-                            Boolean previousLongReached50 = previousProfit50Status.getOrDefault(longKey, false);
-                            Boolean previousShortReached50 = previousProfit50Status.getOrDefault(shortKey, false);
-                            
-                            // 处理盈利达到50%的情况（只有当从<50%变为>=50%时，才增加计数）
-                            if (longReached50 && !previousLongReached50) {
-                                profitCountService.handleProfitReached50(userId, symbol, "LONG", false, true)
-                                        .block(); // 同步等待
-                                log.info("检测到多头盈利达到50%: userId={}, symbol={}, profitPct={}%", 
-                                        userId, symbol, longProfitPctWithLeverage);
-                            }
-                            if (shortReached50 && !previousShortReached50) {
-                                profitCountService.handleProfitReached50(userId, symbol, "SHORT", false, true)
-                                        .block(); // 同步等待
-                                log.info("检测到空头盈利达到50%: userId={}, symbol={}, profitPct={}%", 
-                                        userId, symbol, shortProfitPctWithLeverage);
-                            }
-                            
-                            // 更新缓存
-                            previousProfit50Status.put(longKey, longReached50);
-                            previousProfit50Status.put(shortKey, shortReached50);
-                            
+                            // 注意：pnlPercentage 已经是相对于保证金的百分比（已包含杠杆效应）
+                            // 不需要再乘以杠杆
+
                             // 获取盈利次数和补仓次数
                             java.util.Map<String, Integer> longCounts = profitCountService.getCounts(userId, symbol, "LONG")
                                     .block(); // 同步等待
                             java.util.Map<String, Integer> shortCounts = profitCountService.getCounts(userId, symbol, "SHORT")
                                     .block(); // 同步等待
-                            
+
                             if (longCounts != null) {
                                 longProfitCount = longCounts.getOrDefault("profitCount", 0);
                                 longAddCount = longCounts.getOrDefault("addCount", 0);

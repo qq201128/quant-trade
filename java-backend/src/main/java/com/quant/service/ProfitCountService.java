@@ -125,11 +125,21 @@ public class ProfitCountService {
     public Mono<Void> resetCounts(String userId, String symbol, String side) {
         String profitKey = getProfitCountKey(userId, symbol, side);
         String addKey = getAddCountKey(userId, symbol, side);
-        
+
         redisTemplate.delete(profitKey);
         redisTemplate.delete(addKey);
-        
+
         log.info("清零计数: userId={}, symbol={}, side={}", userId, symbol, side);
+        return Mono.empty();
+    }
+
+    /**
+     * 只清零补仓次数（平仓时调用，不清零盈利次数）
+     */
+    public Mono<Void> resetAddCount(String userId, String symbol, String side) {
+        String addKey = getAddCountKey(userId, symbol, side);
+        redisTemplate.delete(addKey);
+        log.info("清零补仓次数: userId={}, symbol={}, side={}", userId, symbol, side);
         return Mono.empty();
     }
     

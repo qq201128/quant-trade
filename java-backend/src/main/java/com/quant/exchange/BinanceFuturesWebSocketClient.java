@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -52,6 +53,9 @@ public class BinanceFuturesWebSocketClient {
     
     // 存储每个交易对的标记价格 (symbol -> markPrice)
     private final Map<String, BigDecimal> markPrices = new ConcurrentHashMap<>();
+
+    // 用于等待第一条价格数据
+    private final CountDownLatch priceDataReady = new CountDownLatch(1);
     
     public BinanceFuturesWebSocketClient(Proxy proxy) {
         this.proxy = proxy;
@@ -110,6 +114,8 @@ public class BinanceFuturesWebSocketClient {
                         // 如果有更新，发送到流
                         if (!updatedPrices.isEmpty()) {
                             markPriceSink.tryEmitNext(updatedPrices);
+                            // 通知第一条价格数据已到达
+                            priceDataReady.countDown();
 //                            log.info("更新标记价格: {} 个交易对", updatedPrices.size());
                             // 记录前几个交易对的价格，便于调试
                             updatedPrices.entrySet().stream().limit(5).forEach(entry -> 
@@ -191,6 +197,20 @@ public class BinanceFuturesWebSocketClient {
      */
     public BigDecimal getMarkPrice(String symbol) {
         return markPrices.get(symbol);
+    }
+
+    /**
+     * 等待第一条价格数据到达
+     * @param timeoutSeconds 超时时间（秒）
+     * @return 是否成功等待到价格数据
+     */
+    public boolean waitForPriceData(int timeoutSeconds) {
+        try {
+            return priceDataReady.await(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
     
     /**

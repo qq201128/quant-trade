@@ -73,6 +73,12 @@ public class BinanceAdapter implements ExchangeAdapter {
                     prices -> log.debug("收到标记价格更新: {} 个交易对", prices.size()),
                     error -> log.error("订阅标记价格流失败: {}", error.getMessage())
                 );
+        // 等待第一条价格数据到达（最多等待5秒）
+        if (this.futuresWsClient.waitForPriceData(5)) {
+            log.info("WebSocket价格数据已就绪");
+        } else {
+            log.warn("等待WebSocket价格数据超时，可能导致首次交易获取价格失败");
+        }
         
 //        log.info("Binance适配器初始化完成（支持现货和期货API，已订阅标记价格流）");
     }

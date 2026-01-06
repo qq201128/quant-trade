@@ -45,7 +45,7 @@ public class StrategyManager {
      * @return 策略响应（包含交易信号、仓位建议等）
      */
     public Mono<StrategyResponse> executeStrategy(StrategyRequest request) {
-        log.info("调用Python策略: {}", request.getStrategyName());
+//        log.info("调用Python策略: {}", request.getStrategyName());
         
         // 使用Python服务专用WebClient（不使用代理）
         return pythonStrategyWebClient.post()

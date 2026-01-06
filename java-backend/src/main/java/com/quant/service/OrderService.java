@@ -16,16 +16,21 @@ import java.math.BigDecimal;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-    
+
     private final AccountService accountService;
     private final ProfitCountService profitCountService;
+
+    // 开仓冷却期缓存：Key = userId:symbol:side, Value = 上次开仓时间戳
+    private final java.util.Map<String, Long> lastOpenTimeCache = new java.util.concurrent.ConcurrentHashMap<>();
+    // 开仓冷却期（毫秒）：30秒内不允许同一方向重复开仓
+    private static final long OPEN_COOLDOWN_MS = 30_000;
     
     /**
      * 执行交易订单
      */
     public Mono<String> executeOrder(String userId, String symbol, StrategyResponse response) {
-        log.info("执行订单: userId={}, symbol={}, signal={}, position={}", 
-                userId, symbol, response.getSignal(), response.getPosition());
+//        log.info("执行订单: userId={}, symbol={}, signal={}, position={}",
+//                userId, symbol, response.getSignal(), response.getPosition());
         
         // 如果userId为空，无法执行订单
         if (userId == null || userId.isEmpty()) {
@@ -77,24 +82,45 @@ public class OrderService {
         if ("DUAL_OPEN".equals(signal)) {
             // 双向策略初始开仓：需要同时开多空两个仓位
             if (margin != null && margin.compareTo(BigDecimal.ZERO) > 0) {
-                log.info("双向策略初始开仓: userId={}, symbol={}, margin={} USDT（每个方向）", 
+                // 检查双向开仓冷却期
+                String longCooldownKey = userId + ":" + symbol + ":LONG";
+                String shortCooldownKey = userId + ":" + symbol + ":SHORT";
+                Long lastLongOpenTime = lastOpenTimeCache.get(longCooldownKey);
+                Long lastShortOpenTime = lastOpenTimeCache.get(shortCooldownKey);
+                long now = System.currentTimeMillis();
+                if ((lastLongOpenTime != null && (now - lastLongOpenTime) < OPEN_COOLDOWN_MS) ||
+                    (lastShortOpenTime != null && (now - lastShortOpenTime) < OPEN_COOLDOWN_MS)) {
+                    log.info("双向开仓冷却期内，跳过开仓: userId={}, symbol={}", userId, symbol);
+                    return Mono.just("SKIP_COOLDOWN");
+                }
+
+                log.info("双向策略初始开仓: userId={}, symbol={}, margin={} USDT（每个方向）",
                         userId, symbol, margin);
-                
+
                 // 同时开多空两个仓位（响应式），双向策略使用50倍杠杆
                 Mono<Boolean> longMono = accountService.openPositionReactive(userId, symbol, "LONG", null, margin, "DUAL_DIRECTION");
                 Mono<Boolean> shortMono = accountService.openPositionReactive(userId, symbol, "SHORT", null, margin, "DUAL_DIRECTION");
-                
+
                 return Mono.zip(longMono, shortMono)
                         .map(tuple -> {
                             boolean longSuccess = tuple.getT1();
                             boolean shortSuccess = tuple.getT2();
-                            
+
+                            // 更新冷却期缓存
+                            long currentTime = System.currentTimeMillis();
+                            if (longSuccess) {
+                                lastOpenTimeCache.put(longCooldownKey, currentTime);
+                            }
+                            if (shortSuccess) {
+                                lastOpenTimeCache.put(shortCooldownKey, currentTime);
+                            }
+
                             if (longSuccess && shortSuccess) {
-                                return "DUAL_ORDER_SUCCESS_" + System.currentTimeMillis();
+                                return "DUAL_ORDER_SUCCESS_" + currentTime;
                             } else {
-                                log.warn("双向开仓部分失败: userId={}, symbol={}, longSuccess={}, shortSuccess={}", 
+                                log.warn("双向开仓部分失败: userId={}, symbol={}, longSuccess={}, shortSuccess={}",
                                         userId, symbol, longSuccess, shortSuccess);
-                                return "DUAL_ORDER_PARTIAL_" + System.currentTimeMillis();
+                                return "DUAL_ORDER_PARTIAL_" + currentTime;
                             }
                         });
             } else {
@@ -149,10 +175,21 @@ public class OrderService {
         } else if ("SELL".equals(signal)) {
             side = "SHORT";  // 卖出 = 开空仓
         }
-        
+
         if (side == null) {
             log.warn("无法确定持仓方向: signal={}", signal);
             return Mono.just("SKIP_INVALID_SIGNAL");
+        }
+
+        // 开仓冷却期检查：防止同一方向短时间内重复开仓（解决持仓数据延迟导致的重复开仓问题）
+        String cooldownKey = userId + ":" + symbol + ":" + side;
+        Long lastOpenTime = lastOpenTimeCache.get(cooldownKey);
+        long now = System.currentTimeMillis();
+        if (lastOpenTime != null && (now - lastOpenTime) < OPEN_COOLDOWN_MS) {
+            long remainingSeconds = (OPEN_COOLDOWN_MS - (now - lastOpenTime)) / 1000;
+            log.info("开仓冷却期内，跳过开仓: userId={}, symbol={}, side={}, 剩余冷却时间={}秒",
+                    userId, symbol, side, remainingSeconds);
+            return Mono.just("SKIP_COOLDOWN");
         }
         
         // 如果提供了margin，使用保证金开仓
@@ -175,9 +212,12 @@ public class OrderService {
             final boolean isAddPosition = positionRatio != null && positionRatio.compareTo(BigDecimal.ONE) < 0;
             
             // 调用AccountService按保证金开仓（响应式），传递策略类型
+            final String finalCooldownKey = cooldownKey;
             return accountService.openPositionReactive(userId, symbol, side, null, margin, strategyType)
                     .flatMap(success -> {
                         if (success) {
+                            // 开仓成功，更新冷却期缓存
+                            lastOpenTimeCache.put(finalCooldownKey, System.currentTimeMillis());
                             // 如果是补仓操作，增加补仓次数
                             if (isAddPosition && profitCountService != null) {
                                 return profitCountService.incrementAddCount(userId, symbol, finalSide)
