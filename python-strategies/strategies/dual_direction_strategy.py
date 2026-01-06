@@ -142,18 +142,35 @@ class DualDirectionStrategy(BaseStrategy):
             except (ValueError, TypeError):
                 return default
         
-        long_profit_count = position.get("longProfitCount", 0)
+        # 安全获取盈利次数和补仓次数，确保类型正确
+        def safe_int(value, default=0):
+            """安全地将值转换为int"""
+            if value is None:
+                return default
+            if isinstance(value, (int, float)):
+                return int(value)
+            if isinstance(value, str):
+                try:
+                    return int(float(value))  # 先转float再转int，处理"0.0"这种情况
+                except (ValueError, TypeError):
+                    return default
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return default
+        
+        long_profit_count = safe_int(position.get("longProfitCount", 0), 0)
         long_profit_pct_raw = position.get("longProfitPct", 0.0)
         long_profit_pct = safe_float(long_profit_pct_raw, 0.0)
-        long_add_count = position.get("longAddCount", 0)
+        long_add_count = safe_int(position.get("longAddCount", 0), 0)
         long_open_rate_raw = position.get("longOpenRate")
         long_open_rate = safe_float(long_open_rate_raw) if long_open_rate_raw is not None else None
         long_current_rate = current_price
         
-        short_profit_count = position.get("shortProfitCount", 0)
+        short_profit_count = safe_int(position.get("shortProfitCount", 0), 0)
         short_profit_pct_raw = position.get("shortProfitPct", 0.0)
         short_profit_pct = safe_float(short_profit_pct_raw, 0.0)
-        short_add_count = position.get("shortAddCount", 0)
+        short_add_count = safe_int(position.get("shortAddCount", 0), 0)
         short_open_rate_raw = position.get("shortOpenRate")
         short_open_rate = safe_float(short_open_rate_raw) if short_open_rate_raw is not None else None
         short_current_rate = current_price
@@ -249,12 +266,23 @@ class DualDirectionStrategy(BaseStrategy):
             # 如果有多空持仓但未达到平仓条件，记录原因
             logger.info(f"未触发平仓: 多头盈利{long_profit_pct:.2f}% < 50%, 空头盈利{short_profit_pct:.2f}% < 50%")
         
-        # 4.2 检查是否需要补齐仓位：如果只有单边持仓，必须先补齐另一边（双向策略的核心）
-        # 注意：这个检查必须在平仓之后，确保在应该平仓时不会去开仓
+        # 4.2 初始开仓：如果没有任何持仓，需要同时开多空两个仓位（最高优先级，在补齐仓位之前）
+        # 注意：初始开仓不受冷却期限制，因为这是第一次开仓
+        if long_quantity == 0 and short_quantity == 0:
+            signal = "DUAL_OPEN"  # 特殊信号：双向开仓
+            position_ratio = 0.5
+            confidence = 0.6
+            reason = "初始开仓：同时开多空（各1U）"
+            # 初始开仓金额：1U（每个方向）
+            margin = 1.0
+            logger.info(f"✅ 触发初始开仓条件: {reason}")
+        
+        # 4.3 检查是否需要补齐仓位：如果只有单边持仓，必须先补齐另一边（双向策略的核心）
+        # 注意：这个检查必须在平仓和初始开仓之后，确保在应该平仓或初始开仓时不会去补齐仓位
         # 但是，如果最近刚平仓（60秒内），需要等待冷却期，避免频繁开仓
         
-        # 只有在没有触发平仓的情况下，才检查补齐仓位
-        if signal == "HOLD":
+        # 只有在没有触发平仓和初始开仓的情况下，才检查补齐仓位
+        elif signal == "HOLD":
             # 检查最近平仓记录（冷却期检查）
             recent_close_positions = strategy_params.get("recentClosePositions", [])
             cooldown_seconds = 60  # 冷却期：60秒
@@ -302,49 +330,64 @@ class DualDirectionStrategy(BaseStrategy):
                 logger.info(f"冷却期内，跳过补齐仓位: {cooldown_reason}")
                 # signal保持为HOLD，不执行任何操作
         
-        # 4.3 检查补仓条件：盈利4次后，另一方向亏损时补仓
+        # 4.4 检查补仓条件：盈利4次后，另一方向亏损时补仓
+        # 核心逻辑：每4次盈利=1次补仓机会，已补仓次数必须小于允许的最大补仓次数
         elif long_quantity > 0 and short_quantity > 0 and long_profit_count >= 4:
             # 多头盈利，检查空头是否亏损
             max_add_allowed = long_profit_count // 4  # 每4次盈利=1次补仓机会
             
+            # 调试日志：显示补仓判断的关键信息
+            logger.info(f"补仓条件检查（多头盈利）: long_profit_count={long_profit_count}, "
+                       f"max_add_allowed={max_add_allowed}, short_add_count={short_add_count}, "
+                       f"short_profit_pct={short_profit_pct:.2f}%, "
+                       f"可补仓={short_add_count < max_add_allowed}")
+            
+            # 关键判断：已补仓次数 < 允许的最大补仓次数，且空头亏损
             if short_quantity > 0 and short_profit_pct < 0 and short_add_count < max_add_allowed:
-                # 空头亏损，可以补仓
+                # 空头亏损，可以补仓（已补仓次数未达到上限）
                 signal = "SELL"  # 增加空头 = 卖出
                 position_ratio = 0.5  # 补仓金额：固定使用0.5U（盈利开仓1U的一半）
                 confidence = 0.7
                 reason = f"多头盈利{long_profit_count}次，空头亏损{short_profit_pct:.2f}%，需要补空头（已补{short_add_count}/{max_add_allowed}）"
                 # 补仓金额：0.5U
                 margin = 0.5
+                logger.info(f"✅ 触发补仓条件: {reason}")
+            elif short_add_count >= max_add_allowed:
+                # 已补仓次数已达到上限，不能继续补仓
+                logger.info(f"⚠️ 补仓次数已达上限: short_add_count={short_add_count} >= max_add_allowed={max_add_allowed}，无法继续补仓")
             elif short_quantity == 0:
-                # 空头没有持仓，需要开空头
+                # 空头没有持仓，需要开空头（不受补仓次数限制）
                 signal = "SELL"  # 开空头 = 卖出
                 position_ratio = 0.5
                 confidence = 0.7
                 reason = f"多头盈利{long_profit_count}次，空头无持仓，需要开空头"
                 # 开仓金额：0.5U
                 margin = 0.5
+                logger.info(f"✅ 触发开仓条件（空头无持仓）: {reason}")
         
         elif long_quantity > 0 and short_quantity > 0 and short_profit_count >= 4:
             # 空头盈利，检查多头是否亏损
             max_add_allowed = short_profit_count // 4  # 每4次盈利=1次补仓机会
             
+            # 调试日志：显示补仓判断的关键信息
+            logger.info(f"补仓条件检查（空头盈利）: short_profit_count={short_profit_count}, "
+                       f"max_add_allowed={max_add_allowed}, long_add_count={long_add_count}, "
+                       f"long_profit_pct={long_profit_pct:.2f}%, "
+                       f"可补仓={long_add_count < max_add_allowed}")
+            
+            # 关键判断：已补仓次数 < 允许的最大补仓次数，且多头亏损
             if long_quantity > 0 and long_profit_pct < 0 and long_add_count < max_add_allowed:
-                # 多头亏损，可以补仓
+                # 多头亏损，可以补仓（已补仓次数未达到上限）
                 signal = "BUY"  # 增加多头 = 买入
                 position_ratio = 0.5  # 补仓金额：固定使用0.5U（盈利开仓1U的一半）
                 confidence = 0.7
                 reason = f"空头盈利{short_profit_count}次，多头亏损{long_profit_pct:.2f}%，需要补多头（已补{long_add_count}/{max_add_allowed}）"
                 # 补仓金额：0.5U
                 margin = 0.5
-        
-        # 4.4 初始开仓：如果没有任何持仓，需要同时开多空两个仓位
-        elif long_quantity == 0 and short_quantity == 0:
-            signal = "DUAL_OPEN"  # 特殊信号：双向开仓
-            position_ratio = 0.5
-            confidence = 0.6
-            reason = "初始开仓：同时开多空（各1U）"
-            # 初始开仓金额：1U（每个方向）
-            margin = 1.0
+                logger.info(f"✅ 触发补仓条件: {reason}")
+            elif long_add_count >= max_add_allowed:
+                # 已补仓次数已达到上限，不能继续补仓
+                logger.info(f"⚠️ 补仓次数已达上限: long_add_count={long_add_count} >= max_add_allowed={max_add_allowed}，无法继续补仓")
         
         # 最终决策日志
         logger.info(f"策略最终决策: signal={signal}, position_ratio={position_ratio}, reason={reason}, "
