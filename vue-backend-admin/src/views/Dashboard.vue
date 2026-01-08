@@ -24,41 +24,60 @@
     </el-header>
     
     <el-main class="dashboard-main" v-loading="loading">
-      <!-- 用户列表视图 -->
-      <div v-if="!currentUserId" class="user-list-view">
-        <UserList @view-detail="handleViewUserDetail" />
-      </div>
-      
-      <!-- 用户详情视图 -->
-      <div v-else class="user-dashboard">
-        <div class="user-header">
-          <h2>
-            <el-icon><User /></el-icon>
-            用户详情 - {{ currentUserId }}
-          </h2>
+      <transition name="fade" mode="out-in">
+        <!-- 用户列表视图 -->
+        <div v-if="!currentUserId" class="user-list-view" key="user-list">
+          <UserList @view-detail="handleViewUserDetail" />
         </div>
         
-        <!-- 用户信息 -->
-        <UserInfo 
-          :user-info="userInfo" 
-          :account-info="accountInfo"
-          @refresh="loadUserData"
-        />
-        
-        <!-- 持仓信息 -->
-        <PositionList 
-          :positions="positions"
-          :user-id="currentUserId"
-          @refresh="loadUserData"
-        />
-        
-        <!-- 平仓历史记录 -->
-        <CloseHistory 
-          :user-id="currentUserId"
-          :records="closePositionRecords"
-          @refresh="loadClosePositionHistory"
-        />
-      </div>
+        <!-- 用户详情视图 -->
+        <div v-else class="user-detail-view" key="user-detail">
+          <div class="user-detail-header">
+            <h2>
+              <el-icon><User /></el-icon>
+              用户详情 - {{ currentUserId }}
+            </h2>
+          </div>
+          <el-tabs v-model="activeTab" type="border-card" class="detail-tabs">
+            <el-tab-pane label="用户信息" name="info">
+              <template #label>
+                <span>
+                  <el-icon><User /></el-icon> 用户信息
+                </span>
+              </template>
+              <UserInfo 
+                :user-info="userInfo" 
+                :account-info="accountInfo"
+                @refresh="loadUserData"
+              />
+            </el-tab-pane>
+            <el-tab-pane label="当前持仓" name="positions">
+              <template #label>
+                <span>
+                  <el-icon><Tickets /></el-icon> 当前持仓
+                </span>
+              </template>
+              <PositionList 
+                :positions="positions"
+                :user-id="currentUserId"
+                @refresh="loadUserData"
+              />
+            </el-tab-pane>
+            <el-tab-pane label="平仓历史" name="history">
+              <template #label>
+                <span>
+                  <el-icon><Finished /></el-icon> 平仓历史
+                </span>
+              </template>
+              <CloseHistory 
+                :user-id="currentUserId"
+                :records="closePositionRecords"
+                @refresh="loadClosePositionHistory"
+              />
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+      </transition>
     </el-main>
   </el-container>
 </template>
@@ -67,7 +86,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Refresh, User, DataLine, ArrowLeft } from '@element-plus/icons-vue'
+import { Refresh, User, DataLine, ArrowLeft, Tickets, Finished } from '@element-plus/icons-vue'
 import UserList from '../components/UserList.vue'
 import UserInfo from '../components/UserInfo.vue'
 import PositionList from '../components/PositionList.vue'
@@ -84,7 +103,9 @@ export default {
     Refresh,
     User,
     DataLine,
-    ArrowLeft
+    ArrowLeft,
+    Tickets,
+    Finished
   },
   setup() {
     const route = useRoute()
@@ -95,6 +116,7 @@ export default {
     const accountInfo = ref(null)
     const positions = ref([])
     const closePositionRecords = ref([])
+    const activeTab = ref('info')
 
     // 从路由参数获取 userId
     onMounted(() => {
@@ -107,6 +129,7 @@ export default {
     // 监听路由变化
     watch(() => route.params.userId, (newUserId) => {
       if (newUserId) {
+        activeTab.value = 'info'; // 切换用户时，重置到第一个tab
         currentUserId.value = newUserId
         loadUserData()
       } else {
@@ -117,7 +140,7 @@ export default {
     const handleViewUserDetail = (userId) => {
       currentUserId.value = userId
       router.push({ name: 'UserDetail', params: { userId } })
-      loadUserData()
+      // loadUserData is called by the watcher
     }
 
     const handleBackToList = () => {
@@ -181,6 +204,7 @@ export default {
       accountInfo,
       positions,
       closePositionRecords,
+      activeTab,
       handleViewUserDetail,
       handleBackToList,
       handleRefresh,
@@ -227,37 +251,28 @@ export default {
 
 .dashboard-main {
   padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
-.user-list-view {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.user-dashboard {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.user-header {
+.user-detail-header {
   margin-bottom: 20px;
-  padding: 15px 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
-
-.user-header h2 {
-  font-size: 18px;
+.user-detail-header h2 {
+  font-size: 22px;
   font-weight: 600;
-  color: #303133;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0;
+}
+
+
+/* 切换动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
-

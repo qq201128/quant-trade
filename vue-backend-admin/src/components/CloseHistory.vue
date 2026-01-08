@@ -49,6 +49,11 @@
       </div>
     </template>
     
+    <!-- ECharts 图表 -->
+    <div v-if="filteredRecords && filteredRecords.length > 0" class="chart-container">
+      <v-chart class="chart" :option="chartOption" autoresize />
+    </div>
+    
     <el-table 
       :data="filteredRecords" 
       stripe
@@ -191,12 +196,32 @@
 <script>
 import { ref, computed } from 'vue'
 import { Document, Refresh } from '@element-plus/icons-vue'
+import { use } from "echarts/core"
+import { CanvasRenderer } from "echarts/renderers"
+import { LineChart } from "echarts/charts"
+import {
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  LegendComponent,
+} from "echarts/components"
+import VChart from "vue-echarts"
+
+use([
+  CanvasRenderer,
+  LineChart,
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  LegendComponent,
+])
 
 export default {
   name: 'CloseHistory',
   components: {
     Document,
-    Refresh
+    Refresh,
+    VChart
   },
   props: {
     records: {
@@ -255,6 +280,85 @@ export default {
       }
 
       return filtered
+    })
+
+    const chartOption = computed(() => {
+      const sortedRecords = [...filteredRecords.value].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      
+      let cumulativePnl = 0
+      const chartData = sortedRecords.map(record => {
+        cumulativePnl += Number(record.realizedPnl) || 0
+        return {
+          date: formatDateTime(record.createdAt),
+          pnl: cumulativePnl.toFixed(2),
+        }
+      })
+
+      return {
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'cross',
+            label: {
+              backgroundColor: '#6a7985'
+            }
+          }
+        },
+        legend: {
+          data: ['累计盈亏']
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: [
+          {
+            type: 'category',
+            boundaryGap: false,
+            data: chartData.map(item => item.date)
+          }
+        ],
+        yAxis: [
+          {
+            type: 'value',
+            axisLabel: {
+              formatter: '{value} USDT'
+            }
+          }
+        ],
+        series: [
+          {
+            name: '累计盈亏',
+            type: 'line',
+            stack: 'Total',
+            smooth: true,
+            areaStyle: {},
+            emphasis: {
+              focus: 'series'
+            },
+            data: chartData.map(item => item.pnl),
+            itemStyle: {
+              color: '#409EFF'
+            },
+            areaStyle: {
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                    offset: 0, color: '#409EFF' // 0% 处的颜色
+                }, {
+                    offset: 1, color: 'rgba(64, 158, 255, 0.1)' // 100% 处的颜色
+                }]
+              }
+            }
+          }
+        ]
+      }
     })
 
     const handleDateRangeChange = () => {
@@ -359,7 +463,8 @@ export default {
       getWinRate,
       getAveragePnl,
       getMaxProfit,
-      getMaxLoss
+      getMaxLoss,
+      chartOption
     }
   }
 }
@@ -420,6 +525,13 @@ export default {
   font-size: 20px;
   font-weight: bold;
   color: #333;
+}
+
+.chart-container {
+  margin-bottom: 20px;
+}
+.chart {
+  height: 400px;
 }
 </style>
 

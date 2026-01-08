@@ -19,7 +19,7 @@
       :default-sort="{ prop: 'unrealizedPnl', order: 'descending' }"
       v-loading="loading"
     >
-      <el-table-column prop="symbol" label="交易对" width="150" />
+      <el-table-column prop="symbol" label="交易对" width="150" fixed />
       <el-table-column prop="side" label="方向" width="100">
         <template #default="{ row }">
           <el-tag :type="row.side === 'LONG' ? 'success' : 'danger'">
@@ -60,7 +60,7 @@
           </span>
         </template>
       </el-table-column>
-      <el-table-column prop="pnlPercentage" label="盈亏比例" width="120">
+      <el-table-column prop="pnlPercentage" label="盈亏比例" width="120" fixed="right">
         <template #default="{ row }">
           <span :class="getPnlClass(row.unrealizedPnl)">
             {{ formatPercentage(row.pnlPercentage) }}

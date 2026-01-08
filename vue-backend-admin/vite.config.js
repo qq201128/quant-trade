@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
+  appType: 'spa', // <--- 添加此行来解决404问题
   plugins: [vue()],
   // 生产环境基础路径，如果部署在子目录，修改为 '/子目录名/'
   base: '/',
