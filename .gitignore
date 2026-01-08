@@ -221,3 +221,4 @@ docs/_build/
 *.zip
 *.tar.gz
 
+.ace-tool/

@@ -281,8 +281,12 @@ class DualDirectionStrategy(BaseStrategy):
         # 注意：这个检查必须在平仓和初始开仓之后，确保在应该平仓或初始开仓时不会去补齐仓位
         # 但是，如果最近刚平仓（60秒内），需要等待冷却期，避免频繁开仓
         
-        # 只有在没有触发平仓和初始开仓的情况下，才检查补齐仓位
-        elif signal == "HOLD":
+        # 只有在没有触发平仓和初始开仓的情况下，且处于单边持仓时，才检查补齐仓位
+        # （双边持仓时应继续检查补仓条件，否则会被此分支“截断”导致补仓逻辑无法触发）
+        elif signal == "HOLD" and (
+            (long_quantity > 0 and short_quantity == 0)
+            or (long_quantity == 0 and short_quantity > 0)
+        ):
             # 检查最近平仓记录（冷却期检查）
             recent_close_positions = strategy_params.get("recentClosePositions", [])
             cooldown_seconds = 60  # 冷却期：60秒
@@ -441,4 +445,3 @@ class DualDirectionStrategy(BaseStrategy):
             "confidence": 0.0,
             "metadata": {"reason": reason}
         }
-
