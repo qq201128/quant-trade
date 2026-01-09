@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化交易系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -12,52 +13,69 @@
     <!-- 登录/注册页面（独立显示） -->
     <div id="authPage" class="auth-page">
         <div class="login-container">
-            <div class="login-card">
-                <h1><i class="fas fa-chart-line"></i> 量化交易系统</h1>
-                <div class="login-tabs">
-                    <button class="tab-btn active" data-tab="login">登录</button>
-                    <button class="tab-btn" data-tab="register">注册</button>
+            <div class="card shadow" style="width: 25rem;">
+                <div class="card-body p-5">
+                    <h1 class="card-title text-center mb-4"><i class="fas fa-chart-line"></i> 量化交易系统</h1>
+                    
+                    <ul class="nav nav-pills nav-fill mb-4" id="pills-tab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="pills-login-tab" data-bs-toggle="pill" data-bs-target="#pills-login" type="button" role="tab" aria-controls="pills-login" aria-selected="true">登录</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pills-register-tab" data-bs-toggle="pill" data-bs-target="#pills-register" type="button" role="tab" aria-controls="pills-register" aria-selected="false">注册</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="pills-tabContent">
+                        <!-- 登录表单 -->
+                        <div class="tab-pane fade show active" id="pills-login" role="tabpanel" aria-labelledby="pills-login-tab">
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label for="loginUsername" class="form-label"><i class="fas fa-user me-2"></i>用户名</label>
+                                    <input type="text" class="form-control" id="loginUsername" placeholder="请输入用户名" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="loginPassword" class="form-label"><i class="fas fa-lock me-2"></i>密码</label>
+                                    <input type="password" class="form-control" id="loginPassword" placeholder="请输入密码" required>
+                                </div>
+                                <div class="d-grid mt-4">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-sign-in-alt me-2"></i>登录
+                                    </button>
+                                </div>
+                                <div id="loginError" class="text-danger mt-2 text-center"></div>
+                            </form>
+                        </div>
+                        
+                        <!-- 注册表单 -->
+                        <div class="tab-pane fade" id="pills-register" role="tabpanel" aria-labelledby="pills-register-tab">
+                            <form id="registerForm">
+                                <div class="mb-3">
+                                    <label for="registerUsername" class="form-label"><i class="fas fa-user me-2"></i>用户名</label>
+                                    <input type="text" class="form-control" id="registerUsername" placeholder="请输入用户名（3-50个字符）" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="registerPassword" class="form-label"><i class="fas fa-lock me-2"></i>密码</label>
+                                    <input type="password" class="form-control" id="registerPassword" placeholder="请输入密码（至少6个字符）" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="registerEmail" class="form-label"><i class="fas fa-envelope me-2"></i>邮箱（可选）</label>
+                                    <input type="email" class="form-control" id="registerEmail" placeholder="请输入邮箱">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="registerPhone" class="form-label"><i class="fas fa-phone me-2"></i>手机号（可选）</label>
+                                    <input type="tel" class="form-control" id="registerPhone" placeholder="请输入手机号">
+                                </div>
+                                <div class="d-grid mt-4">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-user-plus me-2"></i>注册
+                                    </button>
+                                </div>
+                                <div id="registerError" class="text-danger mt-2 text-center"></div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- 登录表单 -->
-                <form id="loginForm" class="auth-form">
-                    <div class="form-group">
-                        <label><i class="fas fa-user"></i> 用户名</label>
-                        <input type="text" id="loginUsername" placeholder="请输入用户名" required>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-lock"></i> 密码</label>
-                        <input type="password" id="loginPassword" placeholder="请输入密码" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">
-                        <i class="fas fa-sign-in-alt"></i> 登录
-                    </button>
-                    <div id="loginError" class="error-message"></div>
-                </form>
-                
-                <!-- 注册表单 -->
-                <form id="registerForm" class="auth-form" style="display: none;">
-                    <div class="form-group">
-                        <label><i class="fas fa-user"></i> 用户名</label>
-                        <input type="text" id="registerUsername" placeholder="请输入用户名（3-50个字符）" required>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-lock"></i> 密码</label>
-                        <input type="password" id="registerPassword" placeholder="请输入密码（至少6个字符）" required>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-envelope"></i> 邮箱（可选）</label>
-                        <input type="email" id="registerEmail" placeholder="请输入邮箱">
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-phone"></i> 手机号（可选）</label>
-                        <input type="tel" id="registerPhone" placeholder="请输入手机号">
-                    </div>
-                    <button type="submit" class="btn btn-success btn-block">
-                        <i class="fas fa-user-plus"></i> 注册
-                    </button>
-                    <div id="registerError" class="error-message"></div>
-                </form>
             </div>
         </div>
     </div>
@@ -81,6 +99,10 @@
                 <a href="#" class="nav-item" data-page="positions">
                     <i class="fas fa-chart-bar"></i>
                     <span>持仓管理</span>
+                </a>
+                <a href="#" class="nav-item" data-page="history">
+                    <i class="fas fa-history"></i>
+                    <span>平仓历史</span>
                 </a>
                 <a href="#" class="nav-item" data-page="strategies">
                     <i class="fas fa-robot"></i>
@@ -128,86 +150,125 @@
             <div class="content-area">
                 <!-- 仪表盘页面 -->
                 <div id="dashboardPage" class="page active">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                                <i class="fas fa-dollar-sign"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>总资产</h3>
-                                <p class="stat-value" id="totalBalance">--</p>
-                                <span class="stat-change positive">+0.00%</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                                <i class="fas fa-coins"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>可用余额</h3>
-                                <p class="stat-value" id="availableBalance">--</p>
+                    <div class="row">
+                        <div class="col-md-6 col-xl-3 mb-4">
+                            <div class="card shadow h-100">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <div class="text-uppercase text-primary fw-bold small mb-1">总资产</div>
+                                            <div class="h5 mb-0 fw-bold text-dark" id="totalBalance">--</div>
+                                            <span class="small text-success" id="totalBalanceChange">+0.00%</span>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-dollar-sign fa-2x text-secondary"></i>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                                <i class="fas fa-chart-line"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>未实现盈亏</h3>
-                                <p class="stat-value" id="unrealizedPnl">--</p>
-                                <span class="stat-change" id="pnlChange">--</span>
+                        <div class="col-md-6 col-xl-3 mb-4">
+                            <div class="card shadow h-100">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <div class="text-uppercase text-success fw-bold small mb-1">可用余额</div>
+                                            <div class="h5 mb-0 fw-bold text-dark" id="availableBalance">--</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-coins fa-2x text-secondary"></i>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-                                <i class="fas fa-layer-group"></i>
+                        <div class="col-md-6 col-xl-3 mb-4">
+                            <div class="card shadow h-100">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <div class="text-uppercase text-info fw-bold small mb-1">未实现盈亏</div>
+                                            <div class="h5 mb-0 fw-bold text-dark" id="unrealizedPnl">--</div>
+                                            <span class="small" id="pnlChange">--</span>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-chart-line fa-2x text-secondary"></i>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="stat-content">
-                                <h3>持仓数量</h3>
-                                <p class="stat-value" id="positionCount">0</p>
+                        </div>
+                        <div class="col-md-6 col-xl-3 mb-4">
+                            <div class="card shadow h-100">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <div class="text-uppercase text-warning fw-bold small mb-1">持仓数量</div>
+                                            <div class="h5 mb-0 fw-bold text-dark" id="positionCount">0</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-layer-group fa-2x text-secondary"></i>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-
                 </div>
 
                 <!-- 账户信息页面 -->
                 <div id="accountPage" class="page">
-                    <div class="page-header">
-                        <h2>账户信息</h2>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="h3 mb-0 text-dark">账户信息</h2>
                         <button class="btn btn-primary" id="refreshAccountBtn">
-                            <i class="fas fa-sync-alt"></i> 刷新
+                            <i class="fas fa-sync-alt me-2"></i>刷新
                         </button>
                     </div>
-                    <div class="account-details">
-                        <div class="detail-card">
-                            <h3>账户余额</h3>
-                            <div class="detail-item">
-                                <label>总资产 (USDT)</label>
-                                <span class="value" id="accountTotalBalance">--</span>
-                            </div>
-                            <div class="detail-item">
-                                <label>可用余额 (USDT)</label>
-                                <span class="value" id="accountAvailableBalance">--</span>
-                            </div>
-                            <div class="detail-item">
-                                <label>冻结余额 (USDT)</label>
-                                <span class="value" id="accountFrozenBalance">--</span>
-                            </div>
-                            <div class="detail-item">
-                                <label>账户权益 (USDT)</label>
-                                <span class="value" id="accountEquity">--</span>
+                    <div class="row">
+                        <div class="col-lg-6 mb-4">
+                            <div class="card shadow h-100">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 fw-bold text-primary">账户余额</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            总资产 (USDT)
+                                            <span class="fw-bold" id="accountTotalBalance">--</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            可用余额 (USDT)
+                                            <span class="fw-bold" id="accountAvailableBalance">--</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            冻结余额 (USDT)
+                                            <span class="fw-bold" id="accountFrozenBalance">--</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            账户权益 (USDT)
+                                            <span class="fw-bold" id="accountEquity">--</span>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
-                        <div class="detail-card">
-                            <h3>盈亏统计</h3>
-                            <div class="detail-item">
-                                <label>未实现盈亏 (USDT)</label>
-                                <span class="value" id="accountUnrealizedPnl">--</span>
-                            </div>
-                            <div class="detail-item">
-                                <label>更新时间</label>
-                                <span class="value" id="accountUpdateTime">--</span>
+                        <div class="col-lg-6 mb-4">
+                            <div class="card shadow h-100">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 fw-bold text-primary">盈亏统计</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            未实现盈亏 (USDT)
+                                            <span class="fw-bold" id="accountUnrealizedPnl">--</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            更新时间
+                                            <span class="fw-bold" id="accountUpdateTime">--</span>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -215,102 +276,157 @@
 
                 <!-- 持仓管理页面 -->
                 <div id="positionsPage" class="page">
-                    <div class="page-header">
-                        <h2>持仓管理</h2>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="h3 mb-0 text-dark">持仓管理</h2>
                         <button class="btn btn-primary" id="refreshPositionsBtn">
-                            <i class="fas fa-sync-alt"></i> 刷新
+                            <i class="fas fa-sync-alt me-2"></i>刷新
                         </button>
                     </div>
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>交易对</th>
-                                    <th>方向</th>
-                                    <th>持仓数量</th>
-                                    <th>保证金</th>
-                                    <th>开仓均价</th>
-                                    <th>当前价格</th>
-                                    <th>未实现盈亏</th>
-                                    <th>盈亏比例</th>
-                                    <th>杠杆</th>
-                                    <th>操作</th>
-                                    <th>加仓/平仓</th>
-                                </tr>
-                            </thead>
-                            <tbody id="positionsTableBody">
-                                <tr>
-                                    <td colspan="11" class="empty-state">暂无持仓数据</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="card shadow">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped table-hover" id="dataTable" width="100%" cellspacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th>交易对</th>
+                                            <th>方向</th>
+                                            <th>持仓数量</th>
+                                            <th>保证金</th>
+                                            <th>开仓均价</th>
+                                            <th>当前价格</th>
+                                            <th>未实现盈亏</th>
+                                            <th>盈亏比例</th>
+                                            <th>杠杆</th>
+                                            <th>操作</th>
+                                            <th>加仓/平仓</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="positionsTableBody">
+                                        <tr>
+                                            <td colspan="11" class="text-center">暂无持仓数据</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 策略配置页面 -->
                 <div id="strategiesPage" class="page">
-                    <div class="page-header">
-                        <h2>策略配置</h2>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="h3 mb-0 text-dark">策略配置</h2>
                     </div>
-                    <div class="strategy-list" id="strategyList">
+                    <div class="row" id="strategyList">
                         <!-- 策略列表将从后端 API 动态加载 -->
-                        <div class="loading-placeholder" style="text-align: center; padding: 40px; color: #999;">
-                            <i class="fas fa-spinner fa-spin"></i> 加载策略列表...
+                        <div class="col-12 text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">加载策略列表...</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- 系统设置页面 -->
                 <div id="settingsPage" class="page">
-                    <div class="page-header">
-                        <h2>系统设置</h2>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="h3 mb-0 text-dark">系统设置</h2>
                     </div>
-                    <div class="settings-container">
-                        <div class="settings-section">
-                            <h3>交易所配置</h3>
-                            <form id="exchangeConfigForm">
-                                <div class="form-group">
-                                    <label>选择交易所</label>
-                                    <select id="settingsExchangeSelect" required>
-                                        <option value="">请选择</option>
-                                        <option value="OKX">OKX</option>
-                                        <option value="BINANCE">Binance</option>
-                                    </select>
+                    <div class="row">
+                        <div class="col-lg-6 mb-4">
+                            <div class="card shadow h-100">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 fw-bold text-primary">交易所配置</h6>
                                 </div>
-                                <div class="form-group">
-                                    <label>API Key</label>
-                                    <input type="text" id="apiKeyInput" placeholder="请输入API Key" required>
+                                <div class="card-body">
+                                    <form id="exchangeConfigForm">
+                                        <div class="mb-3">
+                                            <label for="settingsExchangeSelect" class="form-label">选择交易所</label>
+                                            <select id="settingsExchangeSelect" class="form-select" required>
+                                                <option value="">请选择</option>
+                                                <option value="OKX">OKX</option>
+                                                <option value="BINANCE">Binance</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="apiKeyInput" class="form-label">API Key</label>
+                                            <input type="text" class="form-control" id="apiKeyInput" placeholder="请输入API Key" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="secretKeyInput" class="form-label">Secret Key</label>
+                                            <input type="password" class="form-control" id="secretKeyInput" placeholder="请输入Secret Key" required>
+                                        </div>
+                                        <div class="mb-3" id="passphraseGroup" style="display: none;">
+                                            <label for="passphraseInput" class="form-label">Passphrase (仅OKX需要)</label>
+                                            <input type="password" class="form-control" id="passphraseInput" placeholder="请输入Passphrase">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>保存配置
+                                        </button>
+                                    </form>
                                 </div>
-                                <div class="form-group">
-                                    <label>Secret Key</label>
-                                    <input type="password" id="secretKeyInput" placeholder="请输入Secret Key" required>
-                                </div>
-                                <div class="form-group" id="passphraseGroup" style="display: none;">
-                                    <label>Passphrase (仅OKX需要)</label>
-                                    <input type="password" id="passphraseInput" placeholder="请输入Passphrase">
-                                </div>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> 保存配置
-                                </button>
-                            </form>
+                            </div>
                         </div>
-                        <div class="settings-section">
-                            <h3>用户信息</h3>
-                            <div class="form-group">
-                                <label>用户名</label>
-                                <input type="text" id="usernameInput" readonly>
+                        <div class="col-lg-6 mb-4">
+                            <div class="card shadow h-100">
+                                <div class="card-header py-3">
+                                    <h6 class="m-0 fw-bold text-primary">用户信息</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="usernameInput" class="form-label">用户名</label>
+                                        <input type="text" class="form-control" id="usernameInput" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="emailInput" class="form-label">邮箱</label>
+                                        <input type="email" class="form-control" id="emailInput" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="phoneInput" class="form-label">手机号</label>
+                                        <input type="tel" class="form-control" id="phoneInput" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="createdAtInput" class="form-label">注册时间</label>
+                                        <input type="text" class="form-control" id="createdAtInput" readonly>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>邮箱</label>
-                                <input type="email" id="emailInput" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label>手机号</label>
-                                <input type="tel" id="phoneInput" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label>注册时间</label>
-                                <input type="text" id="createdAtInput" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 平仓历史页面 -->
+                <div id="historyPage" class="page">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="h3 mb-0 text-dark">平仓历史</h2>
+                        <button class="btn btn-primary" id="refreshHistoryBtn">
+                            <i class="fas fa-sync-alt me-2"></i>刷新
+                        </button>
+                    </div>
+                    <div class="card shadow">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped table-hover" id="historyTable" width="100%" cellspacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th>平仓时间</th>
+                                            <th>交易对</th>
+                                            <th>方向</th>
+                                            <th>平仓数量</th>
+                                            <th>开仓均价</th>
+                                            <th>平仓价格</th>
+                                            <th>已实现盈亏</th>
+                                            <th>盈亏比例</th>
+                                            <th>平仓类型</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="historyTableBody">
+                                        <tr>
+                                            <td colspan="9" class="text-center">暂无平仓历史记录</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -358,6 +474,7 @@
     </div>
 
     <!-- 加载脚本 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2/lib/stomp.min.js"></script>
     <script src="js/app.js"></script>

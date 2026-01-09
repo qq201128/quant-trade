@@ -46,7 +46,7 @@ class TradingApp {
         this.initAuthForms();
         this.initNavigation();
         this.initExchangeSelector();
-        this.initSettings();
+        this.initPageActionButtons();
         this.initLogout();
         this.initStrategies();  // 初始化策略配置
     }
@@ -185,22 +185,7 @@ class TradingApp {
     }
     
     initAuthForms() {
-        // 登录/注册标签切换
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tab = btn.dataset.tab;
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                
-                if (tab === 'login') {
-                    document.getElementById('loginForm').style.display = 'block';
-                    document.getElementById('registerForm').style.display = 'none';
-                } else {
-                    document.getElementById('loginForm').style.display = 'none';
-                    document.getElementById('registerForm').style.display = 'block';
-                }
-            });
-        });
+        // 登录/注册标签切换 (此功能现在由 Bootstrap 5 的 'nav-pills' 自动处理)
         
         // 登录表单
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -420,7 +405,8 @@ class TradingApp {
             account: '账户信息',
             positions: '持仓管理',
             strategies: '策略配置',
-            settings: '系统设置'
+            settings: '系统设置',
+            history: '平仓历史'
         };
         document.getElementById('pageTitle').textContent = titles[page] || '仪表盘';
         
@@ -457,6 +443,11 @@ class TradingApp {
             setTimeout(() => {
                 this.initStrategies();
             }, 100);
+        }
+
+        // 切换到历史页面时，加载历史记录
+        if (page === 'history') {
+            this.loadClosePositionHistory();
         }
     }
     
@@ -606,7 +597,7 @@ class TradingApp {
         }
     }
     
-    initSettings() {
+    initPageActionButtons() {
         const form = document.getElementById('exchangeConfigForm');
         form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -624,7 +615,7 @@ class TradingApp {
             });
         }
         
-        // 刷新按钮（仅通过WebSocket）
+        // 刷新按钮
         document.getElementById('refreshAccountBtn')?.addEventListener('click', () => {
             if (this.stompClient && this.stompClient.connected && this.isWebSocketConnected) {
                 this.stompClient.send('/app/account/request', {}, {});
@@ -642,6 +633,10 @@ class TradingApp {
             } else {
                 alert('WebSocket未连接，无法刷新数据');
             }
+        });
+
+        document.getElementById('refreshHistoryBtn')?.addEventListener('click', () => {
+            this.loadClosePositionHistory();
         });
     }
     
@@ -950,7 +945,7 @@ class TradingApp {
         if (accountInfo.unrealizedPnl) {
             const pnl = parseFloat(accountInfo.unrealizedPnl);
             pnlChange.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '%';
-            pnlChange.className = 'stat-change ' + (pnl >= 0 ? 'positive' : 'negative');
+            pnlChange.className = 'small ' + (pnl >= 0 ? 'text-success' : 'text-danger');
         }
         
         document.getElementById('positionCount').textContent = 
@@ -1028,30 +1023,29 @@ class TradingApp {
             // console.log(`更新 ${positions.length} 个持仓`);
             // 为每个持仓构建行 HTML
             positions.forEach((pos, index) => {
-                // 计算盈亏比例（乘以杠杆倍数）
+                // 盈亏比例
                 const pnlPercentage = parseFloat(pos.pnlPercentage) || 0;
-                const leverage = parseInt(pos.leverage) || 1;
-                const adjustedPnlPercentage = pnlPercentage * leverage;
+                const adjustedPnlPercentage = pnlPercentage;
                 
                 // 计算保证金（如果margin字段不存在，则根据公式计算）
                 const margin = pos.margin || (parseFloat(pos.quantity) * parseFloat(pos.currentPrice) / (parseInt(pos.leverage) || 1));
                 
                 html += `
-                    <tr style="height: auto;">
-                        <td style="white-space: nowrap;">${pos.symbol}</td>
-                        <td style="white-space: nowrap;"><span class="badge ${pos.side === 'LONG' ? 'badge-success' : 'badge-danger'}">${pos.side}</span></td>
-                        <td style="white-space: nowrap; font-family: monospace; min-width: 100px;">${String(pos.quantity)}</td>
-                        <td style="white-space: nowrap; font-family: monospace; min-width: 120px;">${String(margin)} USDT</td>
-                        <td style="white-space: nowrap; font-family: monospace; min-width: 120px;">${formatPrice(pos.avgPrice)}</td>
-                        <td style="white-space: nowrap; font-family: monospace; min-width: 120px;">${formatPrice(pos.currentPrice)}</td>
-                        <td class="${parseFloat(pos.unrealizedPnl) >= 0 ? 'positive' : 'negative'}" style="white-space: nowrap; font-family: monospace; min-width: 120px;">
+                    <tr>
+                        <td>${pos.symbol}</td>
+                        <td><span class="badge ${pos.side === 'LONG' ? 'text-bg-success' : 'text-bg-danger'}">${pos.side}</span></td>
+                        <td>${String(pos.quantity)}</td>
+                        <td>${String(margin)} USDT</td>
+                        <td>${formatPrice(pos.avgPrice)}</td>
+                        <td>${formatPrice(pos.currentPrice)}</td>
+                        <td class="fw-bold ${parseFloat(pos.unrealizedPnl) >= 0 ? 'text-success' : 'text-danger'}">
                             ${String(pos.unrealizedPnl)} USDT
                         </td>
-                        <td class="${adjustedPnlPercentage >= 0 ? 'positive' : 'negative'}" style="white-space: nowrap; min-width: 80px;">
+                        <td class="fw-bold ${adjustedPnlPercentage >= 0 ? 'text-success' : 'text-danger'}">
                             ${adjustedPnlPercentage.toFixed(2)}%
                         </td>
-                        <td style="white-space: nowrap;">${pos.leverage}x</td>
-                        <td style="white-space: nowrap; min-width: 100px;">
+                        <td>${pos.leverage}x</td>
+                        <td>
                             <button class="btn btn-sm btn-danger close-position-btn" 
                                     data-symbol="${pos.symbol}" 
                                     data-side="${pos.side}"
@@ -1060,43 +1054,39 @@ class TradingApp {
                                     data-leverage="${pos.leverage}"
                                     data-current-price="${pos.currentPrice}">全部平仓</button>
                         </td>
-                        <td style="white-space: normal; min-width: 300px; width: 300px;">
-                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: nowrap;">
-                                <div style="display: flex; flex-direction: column; gap: 3px; flex: 0 0 90px;">
-                                    <label style="font-size: 11px; color: #666; white-space: nowrap;">数量:</label>
+                        <td style="min-width: 320px;">
+                            <div class="d-flex align-items-end gap-2">
+                                <div class="flex-grow-1">
+                                    <label class="small mb-1">数量:</label>
                                     <input type="number" 
-                                           class="position-quantity-input" 
+                                           class="form-control form-control-sm position-quantity-input" 
                                            data-symbol="${pos.symbol}" 
                                            data-side="${pos.side}"
                                            data-leverage="${pos.leverage}"
                                            data-current-price="${pos.currentPrice}"
                                            placeholder="数量" 
                                            min="0" 
-                                           step="0.01"
-                                           style="width: 100%; padding: 4px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                                           step="0.01">
                                 </div>
-                                <div style="display: flex; flex-direction: column; gap: 3px; flex: 0 0 90px;">
-                                    <label style="font-size: 11px; color: #666; white-space: nowrap;">保证金:</label>
+                                <div class="flex-grow-1">
+                                    <label class="small mb-1">保证金:</label>
                                     <input type="number" 
-                                           class="position-margin-input" 
+                                           class="form-control form-control-sm position-margin-input" 
                                            data-symbol="${pos.symbol}" 
                                            data-side="${pos.side}"
                                            data-leverage="${pos.leverage}"
                                            data-current-price="${pos.currentPrice}"
                                            placeholder="保证金" 
                                            min="0" 
-                                           step="0.01"
-                                           style="width: 100%; padding: 4px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                                           step="0.01">
                                 </div>
-                                <div style="display: flex; flex-direction: column; gap: 5px; justify-content: flex-end; flex: 0 0 90px;">
+                                <div class="btn-group-vertical">
                                     <button class="btn btn-sm btn-success add-position-btn" 
                                             data-symbol="${pos.symbol}" 
-                                            data-side="${pos.side}"
-                                            style="white-space: nowrap; padding: 6px 12px; width: 100%;">加仓</button>
+                                            data-side="${pos.side}">加仓</button>
                                     <button class="btn btn-sm btn-warning partial-close-btn" 
                                             data-symbol="${pos.symbol}" 
-                                            data-side="${pos.side}"
-                                            style="white-space: nowrap; padding: 6px 12px; width: 100%;">部分平仓</button>
+                                            data-side="${pos.side}">平仓</button>
                                 </div>
                             </div>
                         </td>
@@ -1258,6 +1248,66 @@ class TradingApp {
         
         // console.log('========== 更新持仓表格完成 ==========');
     }
+
+    async loadClosePositionHistory() {
+        if (!this.token || !this.userId) {
+            console.log('无法加载平仓历史: token或userId为空');
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center">请先登录</td></tr>`;
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.backendUrl}/api/account/close-positions/${this.userId}`, {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            if (response.ok) {
+                const records = await response.json();
+                this.updateClosePositionHistoryTable(records);
+            } else {
+                console.error('加载平仓历史失败:', response.status);
+                const tbody = document.getElementById('historyTableBody');
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">加载失败</td></tr>`;
+            }
+        } catch (error) {
+            console.error('加载平仓历史异常:', error);
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">加载异常</td></tr>`;
+        }
+    }
+
+    updateClosePositionHistoryTable(records) {
+        const tbody = document.getElementById('historyTableBody');
+        if (!records || records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center">暂无平仓历史记录</td></tr>';
+            return;
+        }
+
+        const html = records.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(record => {
+            const pnl = parseFloat(record.realizedPnl);
+            const pnlClass = pnl >= 0 ? 'text-success' : 'text-danger';
+            
+            return `
+                <tr>
+                    <td>${new Date(record.createdAt).toLocaleString()}</td>
+                    <td>${record.symbol}</td>
+                    <td><span class="badge ${record.side === 'LONG' ? 'text-bg-success' : 'text-bg-danger'}">${record.side}</span></td>
+                    <td>${this.formatNumber(record.closeQuantity)}</td>
+                    <td>${this.formatNumber(record.avgPrice)}</td>
+                    <td>${this.formatNumber(record.closePrice)}</td>
+                    <td class="fw-bold ${pnlClass}">${this.formatNumber(record.realizedPnl)}</td>
+                    <td class="fw-bold ${pnlClass}">${record.pnlPercentage != null ? Number(record.pnlPercentage).toFixed(2) : '0.00'}%</td>
+                    <td><span class="badge text-bg-secondary">${record.closeType}</span></td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.innerHTML = html;
+    }
+
     
     /**
      * 平仓操作（支持部分平仓）
@@ -1545,7 +1595,7 @@ class TradingApp {
                 const card = target.closest('.strategy-card');
                 if (!card) return;
                 
-                const strategyName = card.querySelector('h3')?.textContent || '未知策略';
+                const strategyName = card.querySelector('.strategy-name')?.textContent || '未知策略';
                 const strategyType = card.querySelector('.strategy-badge')?.textContent || '';
                 const btnText = target.textContent.trim();
                 
@@ -1645,14 +1695,16 @@ class TradingApp {
         // 生成策略卡片 HTML
         const strategiesHTML = strategies.map(strategy => {
             return `
-                <div class="strategy-card" data-strategy-type="${strategy.type}">
-                    <div class="strategy-header">
-                        <h3>${this.escapeHtml(strategy.name)}</h3>
-                        <span class="strategy-badge">${this.escapeHtml(strategy.type)}</span>
-                    </div>
-                    <div class="strategy-body">
-                        <p>${this.escapeHtml(strategy.description || '')}</p>
-                        <div class="strategy-actions">
+                <div class="col-xl-4 col-md-6 mb-4">
+                    <div class="card shadow h-100 strategy-card" data-strategy-type="${strategy.type}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="m-0 fw-bold text-primary strategy-name">${this.escapeHtml(strategy.name)}</h6>
+                            <span class="badge text-bg-secondary strategy-badge">${this.escapeHtml(strategy.type)}</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">${this.escapeHtml(strategy.description || '')}</p>
+                        </div>
+                        <div class="card-footer d-flex justify-content-end gap-2 strategy-actions">
                             <button class="btn btn-sm btn-primary">配置</button>
                             <button class="btn btn-sm btn-success">启动</button>
                             <button class="btn btn-sm btn-danger">停止</button>
@@ -1696,7 +1748,7 @@ class TradingApp {
                     // 更新每个策略的按钮状态
                     const strategyCards = document.querySelectorAll('.strategy-card');
                     strategyCards.forEach(card => {
-                        const strategyName = card.querySelector('h3')?.textContent;
+                        const strategyName = card.querySelector('.strategy-name')?.textContent;
                         if (!strategyName) return;
                         
                         const status = result.strategies[strategyName];
