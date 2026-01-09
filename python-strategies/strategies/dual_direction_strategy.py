@@ -237,6 +237,7 @@ class DualDirectionStrategy(BaseStrategy):
         confidence = 0.6
         reason = ""
         margin = None  # 开仓/补仓金额（USDT）
+        add_position_type = None  # "ADD" for add, "REBALANCE" for rebalance
         
         # 4.1 优先检查平仓条件：盈利50%时平仓（最高优先级）
         # 注意：平仓条件必须优先于补齐仓位，避免在应该平仓时却去开仓
@@ -319,6 +320,7 @@ class DualDirectionStrategy(BaseStrategy):
                     position_ratio = 0.5
                     confidence = 0.6
                     reason = "只有多头持仓，需要开空头（补齐双向仓位）"
+                    add_position_type = "REBALANCE"
                     # 开仓金额：1U（与多头保持一致）
                     margin = 1.0
                 elif long_quantity == 0 and short_quantity > 0:
@@ -327,6 +329,7 @@ class DualDirectionStrategy(BaseStrategy):
                     position_ratio = 0.5
                     confidence = 0.6
                     reason = "只有空头持仓，需要开多头（补齐双向仓位）"
+                    add_position_type = "REBALANCE"
                     # 开仓金额：1U（与空头保持一致）
                     margin = 1.0
             else:
@@ -335,24 +338,28 @@ class DualDirectionStrategy(BaseStrategy):
                 # signal保持为HOLD，不执行任何操作
         
         # 4.4 检查补仓条件：盈利4次后，另一方向亏损时补仓
-        # 核心逻辑：每4次盈利=1次补仓机会，已补仓次数必须小于允许的最大补仓次数
+        # 核心逻辑：每4次盈利=1次补仓机会，仅在盈利次数为4的倍数时触发
         elif long_quantity > 0 and short_quantity > 0 and long_profit_count >= 4:
             # 多头盈利，检查空头是否亏损
             max_add_allowed = long_profit_count // 4  # 每4次盈利=1次补仓机会
+            add_window = (long_profit_count % 4 == 0)
             
             # 调试日志：显示补仓判断的关键信息
             logger.info(f"补仓条件检查（多头盈利）: long_profit_count={long_profit_count}, "
                        f"max_add_allowed={max_add_allowed}, short_add_count={short_add_count}, "
                        f"short_profit_pct={short_profit_pct:.2f}%, "
-                       f"可补仓={short_add_count < max_add_allowed}")
+                       f"add_window={add_window}, 可补仓={short_add_count < max_add_allowed}")
             
             # 关键判断：已补仓次数 < 允许的最大补仓次数，且空头亏损
-            if short_quantity > 0 and short_profit_pct < 0 and short_add_count < max_add_allowed:
+            if not add_window:
+                logger.info(f"Add window not reached: long_profit_count={long_profit_count}, need multiple of 4")
+            elif short_quantity > 0 and short_profit_pct < 0 and short_add_count < max_add_allowed:
                 # 空头亏损，可以补仓（已补仓次数未达到上限）
                 signal = "SELL"  # 增加空头 = 卖出
                 position_ratio = 0.5  # 补仓金额：固定使用0.5U（盈利开仓1U的一半）
                 confidence = 0.7
                 reason = f"多头盈利{long_profit_count}次，空头亏损{short_profit_pct:.2f}%，需要补空头（已补{short_add_count}/{max_add_allowed}）"
+                add_position_type = "ADD"
                 # 补仓金额：0.5U
                 margin = 0.5
                 logger.info(f"✅ 触发补仓条件: {reason}")
@@ -372,20 +379,24 @@ class DualDirectionStrategy(BaseStrategy):
         elif long_quantity > 0 and short_quantity > 0 and short_profit_count >= 4:
             # 空头盈利，检查多头是否亏损
             max_add_allowed = short_profit_count // 4  # 每4次盈利=1次补仓机会
+            add_window = (short_profit_count % 4 == 0)
             
             # 调试日志：显示补仓判断的关键信息
             logger.info(f"补仓条件检查（空头盈利）: short_profit_count={short_profit_count}, "
                        f"max_add_allowed={max_add_allowed}, long_add_count={long_add_count}, "
                        f"long_profit_pct={long_profit_pct:.2f}%, "
-                       f"可补仓={long_add_count < max_add_allowed}")
+                       f"add_window={add_window}, 可补仓={long_add_count < max_add_allowed}")
             
             # 关键判断：已补仓次数 < 允许的最大补仓次数，且多头亏损
-            if long_quantity > 0 and long_profit_pct < 0 and long_add_count < max_add_allowed:
+            if not add_window:
+                logger.info(f"Add window not reached: short_profit_count={short_profit_count}, need multiple of 4")
+            elif long_quantity > 0 and long_profit_pct < 0 and long_add_count < max_add_allowed:
                 # 多头亏损，可以补仓（已补仓次数未达到上限）
                 signal = "BUY"  # 增加多头 = 买入
                 position_ratio = 0.5  # 补仓金额：固定使用0.5U（盈利开仓1U的一半）
                 confidence = 0.7
                 reason = f"空头盈利{short_profit_count}次，多头亏损{long_profit_pct:.2f}%，需要补多头（已补{long_add_count}/{max_add_allowed}）"
+                add_position_type = "ADD"
                 # 补仓金额：0.5U
                 margin = 0.5
                 logger.info(f"✅ 触发补仓条件: {reason}")
@@ -415,6 +426,8 @@ class DualDirectionStrategy(BaseStrategy):
                 "strategy": "DualDirectionStrategy"
             }
         }
+        if add_position_type is not None:
+            result["metadata"]["addPositionType"] = add_position_type
         
         # 如果设置了margin（开仓或补仓金额），添加到metadata中
         if margin is not None:

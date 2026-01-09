@@ -210,6 +210,8 @@ public class OrderService {
             // 声明为final以便在lambda中使用
             final String finalSide = side;
             final boolean isAddPosition = positionRatio != null && positionRatio.compareTo(BigDecimal.ONE) < 0;
+            final boolean isRebalance = metadata != null
+                    && "REBALANCE".equals(String.valueOf(metadata.get("addPositionType")));
             
             // 调用AccountService按保证金开仓（响应式），传递策略类型
             final String finalCooldownKey = cooldownKey;
@@ -219,7 +221,7 @@ public class OrderService {
                             // 开仓成功，更新冷却期缓存
                             lastOpenTimeCache.put(finalCooldownKey, System.currentTimeMillis());
                             // 如果是补仓操作，增加补仓次数
-                            if (isAddPosition && profitCountService != null) {
+                            if (isAddPosition && !isRebalance && profitCountService != null) {
                                 return profitCountService.incrementAddCount(userId, symbol, finalSide)
                                         .thenReturn("ORDER_SUCCESS_" + System.currentTimeMillis());
                             }
@@ -236,4 +238,3 @@ public class OrderService {
         }
     }
 }
-
